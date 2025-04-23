@@ -1,0 +1,6 @@
+CREATE TABLE data_logs (
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    data_collector TEXT NOT NULL,
+    update_date DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
