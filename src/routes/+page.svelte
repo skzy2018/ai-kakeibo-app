@@ -1,496 +1,308 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/tauri";
   import { onMount } from "svelte";
-
+  
   // State variables
   let initialized = false;
-  let activeTab = "dashboard";
-  let accounts = [];
-  let categories = [];
-  let transactions = [];
-  let sqlQuery = "";
-  let sqlResult = null;
-
-  // Initialize the database and load initial data
+  let loading = true;
+  let error: Error | null = null;
+  
+  // Mock dashboard data
+  let recentTransactions = [
+    { id: 1, date: '2025-04-25', description: 'スーパーでの買い物', amount: -5800, category: '食費', account: '現金' },
+    { id: 2, date: '2025-04-24', description: '電気代の支払い', amount: -12500, category: '住居費', account: '銀行口座' },
+    { id: 3, date: '2025-04-23', description: '給料', amount: 280000, category: '収入', account: '銀行口座' },
+    { id: 4, date: '2025-04-22', description: 'カフェでのランチ', amount: -1500, category: '食費', account: 'クレジットカード' },
+    { id: 5, date: '2025-04-20', description: '映画チケット', amount: -3600, category: '娯楽', account: 'クレジットカード' }
+  ];
+  
+  let monthlySummary = {
+    income: 350000,
+    expenses: 127500,
+    balance: 222500
+  };
+  
+  let categorySummary = [
+    { name: '食費', amount: 42500, percentage: 33.3 },
+    { name: '住居費', amount: 35000, percentage: 27.5 },
+    { name: '交通費', amount: 15000, percentage: 11.8 },
+    { name: '娯楽', amount: 20000, percentage: 15.7 },
+    { name: 'その他', amount: 15000, percentage: 11.7 }
+  ];
+  
   onMount(async () => {
     try {
-      const result = await invoke("init_database");
-      console.log("Database initialized:", result);
-      initialized = true;
+      // In a real app with Tauri, we would initialize the database
+      // For development, we'll use mock data
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Load accounts and categories
-      await loadAccounts();
-      await loadCategories();
-      await loadTransactions();
-    } catch (error) {
-      console.error("Failed to initialize database:", error);
+      loading = false;
+      initialized = true;
+    } catch (err) {
+      console.error("Initialization error:", err);
+      error = err instanceof Error ? err : new Error(String(err));
+      loading = false;
     }
   });
-
-  async function loadAccounts() {
-    try {
-      const result = await invoke("get_accounts");
-      accounts = JSON.parse(result);
-    } catch (error) {
-      console.error("Failed to load accounts:", error);
-    }
-  }
-
-  async function loadCategories() {
-    try {
-      const result = await invoke("get_categories");
-      categories = JSON.parse(result);
-    } catch (error) {
-      console.error("Failed to load categories:", error);
-    }
-  }
-
-  async function loadTransactions(limit = 100, offset = 0) {
-    try {
-      const result = await invoke("get_transactions", { limit, offset });
-      transactions = JSON.parse(result);
-    } catch (error) {
-      console.error("Failed to load transactions:", error);
-    }
-  }
-
-  async function executeSql() {
-    if (!sqlQuery.trim()) return;
-    
-    try {
-      const result = await invoke("execute_sql", { sql: sqlQuery });
-      sqlResult = JSON.parse(result);
-    } catch (error) {
-      console.error("Failed to execute SQL:", error);
-      sqlResult = { success: false, error: String(error) };
-    }
-  }
 </script>
 
-<main>
-  <header>
-    <h1>AI-Kakeibo-App</h1>
-  </header>
-
-  <nav>
-    <ul>
-      <li class:active={activeTab === "dashboard"}>
-        <button on:click={() => activeTab = "dashboard"}>ダッシュボード</button>
-      </li>
-      <li class:active={activeTab === "transactions"}>
-        <button on:click={() => activeTab = "transactions"}>取引</button>
-      </li>
-      <li class:active={activeTab === "data-collector"}>
-        <button on:click={() => activeTab = "data-collector"}>データコレクタ</button>
-      </li>
-      <li class:active={activeTab === "sql-component"}>
-        <button on:click={() => activeTab = "sql-component"}>SQLコンポーネント</button>
-      </li>
-      <li class:active={activeTab === "ai-chat"}>
-        <button on:click={() => activeTab = "ai-chat"}>AIチャット</button>
-      </li>
-    </ul>
-  </nav>
-
-  <div class="content">
-    {#if !initialized}
-      <div class="loading">
-        <p>データベースを初期化中...</p>
-      </div>
-    {:else if activeTab === "dashboard"}
-      <section class="dashboard">
-        <h2>ダッシュボード</h2>
-        <p>複数のSQLコンポーネントを自由に配置できます。</p>
-        <div class="dashboard-grid">
-          <!-- Dashboard components will be placed here -->
-          <div class="dashboard-widget">
-            <h3>最近の取引</h3>
-            <div class="widget-content">
-              {#if transactions.length > 0}
-                <ul class="transaction-list">
-                  {#each transactions.slice(0, 5) as transaction}
-                    <li>
-                      <span class="date">{transaction.transaction_date}</span>
-                      <span class="description">{transaction.description}</span>
-                      <span class="amount">{transaction.amount.toLocaleString()} 円</span>
-                    </li>
-                  {/each}
-                </ul>
-              {:else}
-                <p>取引データがありません</p>
-              {/if}
-            </div>
+<div class="page-container">
+  <h1>ダッシュボード</h1>
+  
+  {#if loading}
+    <div class="loading">
+      <p>データを読み込み中...</p>
+    </div>
+  {:else if error}
+    <div class="error-message">
+      <p>エラーが発生しました: {error}</p>
+      <button on:click={() => window.location.reload()}>再試行</button>
+    </div>
+  {:else}
+    <div class="dashboard-grid">
+      <!-- Monthly summary widget -->
+      <div class="card">
+        <h3>今月の概要</h3>
+        <div class="summary-stats">
+          <div class="stat-item">
+            <span class="stat-label">収入</span>
+            <span class="stat-value income">¥{monthlySummary.income.toLocaleString()}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">支出</span>
+            <span class="stat-value expense">¥{monthlySummary.expenses.toLocaleString()}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">残高</span>
+            <span class="stat-value balance">¥{monthlySummary.balance.toLocaleString()}</span>
           </div>
         </div>
-      </section>
-    {:else if activeTab === "transactions"}
-      <section class="transactions">
-        <h2>取引一覧</h2>
-        <div class="transaction-controls">
-          <button>新規取引を追加</button>
-        </div>
-        <div class="transaction-table">
-          {#if transactions.length > 0}
+      </div>
+      
+      <!-- Recent transactions widget -->
+      <div class="card">
+        <h3>最近の取引</h3>
+        <div class="transaction-list">
+          {#if recentTransactions.length === 0}
+            <p class="empty-message">取引履歴がありません</p>
+          {:else}
             <table>
               <thead>
                 <tr>
                   <th>日付</th>
                   <th>説明</th>
                   <th>カテゴリ</th>
-                  <th>口座</th>
-                  <th>金額</th>
+                  <th class="text-right">金額</th>
                 </tr>
               </thead>
               <tbody>
-                {#each transactions as transaction}
+                {#each recentTransactions as transaction}
                   <tr>
-                    <td>{transaction.transaction_date}</td>
+                    <td>{transaction.date}</td>
                     <td>{transaction.description}</td>
-                    <td>{transaction.category_name}</td>
-                    <td>{transaction.account_name}</td>
-                    <td class:negative={transaction.amount < 0}>
-                      {transaction.amount.toLocaleString()} 円
+                    <td>
+                      <span class="badge 
+                        {transaction.category === '収入' ? 'badge-success' : 'badge-primary'}">
+                        {transaction.category}
+                      </span>
+                    </td>
+                    <td class="text-right {transaction.amount < 0 ? 'expense' : 'income'}">
+                      ¥{Math.abs(transaction.amount).toLocaleString()}
                     </td>
                   </tr>
                 {/each}
               </tbody>
             </table>
-          {:else}
-            <p>取引データがありません</p>
           {/if}
         </div>
-      </section>
-    {:else if activeTab === "data-collector"}
-      <section class="data-collector">
-        <h2>データコレクタ</h2>
-        <p>CSVファイルや外部データを取り込み、家計簿データベースに登録します。</p>
-        <div class="collector-form">
-          <div class="import-section">
-            <h3>CSVインポート</h3>
-            <input type="file" accept=".csv" />
-            <button>選択したファイルをインポート</button>
-          </div>
-        </div>
-      </section>
-    {:else if activeTab === "sql-component"}
-      <section class="sql-component">
-        <h2>SQLコンポーネント</h2>
-        <p>SQLクエリを実行して家計簿データを分析・可視化できます。</p>
-        <div class="sql-editor">
-          <textarea 
-            bind:value={sqlQuery} 
-            placeholder="SELECT * FROM transactions LIMIT 10"></textarea>
-          <button on:click={executeSql}>実行</button>
-        </div>
-        <div class="sql-result">
-          {#if sqlResult}
-            {#if sqlResult.success}
-              <div class="success">
-                <h3>実行結果</h3>
-                {#if sqlResult.data && sqlResult.data.length > 0}
-                  <table>
-                    <thead>
-                      <tr>
-                        {#each sqlResult.columns as column}
-                          <th>{column}</th>
-                        {/each}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {#each sqlResult.data as row}
-                        <tr>
-                          {#each sqlResult.columns as column}
-                            <td>{row[column]}</td>
-                          {/each}
-                        </tr>
-                      {/each}
-                    </tbody>
-                  </table>
-                {:else}
-                  <p>結果はありません</p>
-                {/if}
+      </div>
+      
+      <!-- Category summary widget -->
+      <div class="card">
+        <h3>カテゴリ別支出</h3>
+        <div class="category-summary">
+          {#each categorySummary as category}
+            <div class="category-item">
+              <div class="category-info">
+                <span class="category-name">{category.name}</span>
+                <span class="category-amount">¥{category.amount.toLocaleString()}</span>
               </div>
-            {:else}
-              <div class="error">
-                <h3>エラー</h3>
-                <p>{sqlResult.error}</p>
+              <div class="category-bar">
+                <div class="category-progress" style="width: {category.percentage}%"></div>
               </div>
-            {/if}
-          {/if}
-        </div>
-      </section>
-    {:else if activeTab === "ai-chat"}
-      <section class="ai-chat">
-        <h2>AIチャット</h2>
-        <p>家計簿の現状や分析について、AIにチャットで相談できます。</p>
-        <div class="chat-interface">
-          <div class="chat-messages">
-            <div class="message ai">
-              <p>こんにちは！あなたの家計簿について、何かお手伝いできることはありますか？</p>
+              <span class="category-percentage">{category.percentage}%</span>
             </div>
-          </div>
-          <div class="chat-input">
-            <textarea placeholder="AIに質問してください..."></textarea>
-            <button>送信</button>
+          {/each}
+        </div>
+      </div>
+      
+      <!-- Placeholder for SQL components -->
+      <div class="card">
+        <div class="flex justify-between items-center mb-3">
+          <h3>グラフウィジェット</h3>
+          <span class="badge badge-primary">SQLコンポーネント</span>
+        </div>
+        <div class="mock-chart">
+          <p class="text-center text-muted">ここにSQLコンポーネントの<br>グラフが表示されます</p>
+          <div class="mock-bars">
+            <div class="mock-bar" style="height: 40px;"></div>
+            <div class="mock-bar" style="height: 65px;"></div>
+            <div class="mock-bar" style="height: 30px;"></div>
+            <div class="mock-bar" style="height: 80px;"></div>
+            <div class="mock-bar" style="height: 50px;"></div>
+            <div class="mock-bar" style="height: 70px;"></div>
           </div>
         </div>
-      </section>
-    {/if}
-  </div>
-</main>
+      </div>
+    </div>
+  {/if}
+</div>
 
 <style>
-  :root {
-    font-family: 'Helvetica Neue', Arial, sans-serif;
-    font-size: 16px;
-    line-height: 1.5;
-    --primary-color: #3e64ff;
-    --secondary-color: #5edfff;
-    --text-color: #333;
-    --bg-color: #f5f7fa;
-    --card-bg: #ffffff;
-    --border-color: #e0e0e0;
-    --success-color: #28a745;
-    --error-color: #dc3545;
-  }
-
-  main {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem;
-    background-color: var(--bg-color);
-    min-height: 100vh;
-  }
-
-  header {
-    margin-bottom: 2rem;
-  }
-
-  h1 {
-    color: var(--primary-color);
-    font-size: 2.5rem;
-    margin: 0;
-  }
-
-  nav ul {
-    display: flex;
-    list-style: none;
-    padding: 0;
-    margin: 0 0 2rem 0;
-    background-color: var(--card-bg);
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  nav li {
-    flex: 1;
-  }
-
-  nav button {
-    width: 100%;
+  .page-container {
     padding: 1rem;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-weight: 500;
-    color: var(--text-color);
-    transition: all 0.3s;
   }
-
-  nav li.active button {
-    color: var(--primary-color);
-    border-bottom: 3px solid var(--primary-color);
-  }
-
-  nav button:hover {
-    background-color: rgba(62, 100, 255, 0.1);
-  }
-
-  .content {
-    background-color: var(--card-bg);
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  section h2 {
-    color: var(--primary-color);
-    margin-top: 0;
-  }
-
-  /* Dashboard specific styles */
+  
   .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
     margin-top: 1.5rem;
   }
-
-  .dashboard-widget {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  }
-
-  .dashboard-widget h3 {
-    font-size: 1.1rem;
-    margin-top: 0;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  /* Transaction specific styles */
-  .transaction-controls {
-    margin-bottom: 1rem;
-  }
-
-  .transaction-table {
-    overflow-x: auto;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th, td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  th {
-    background-color: rgba(62, 100, 255, 0.1);
-    font-weight: 500;
-  }
-
-  .negative {
-    color: var(--error-color);
-  }
-
-  /* SQL Component specific styles */
-  .sql-editor {
-    display: flex;
-    margin-bottom: 1rem;
-  }
-
-  .sql-editor textarea {
-    flex: 1;
-    min-height: 150px;
-    padding: 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-family: monospace;
-    margin-right: 0.5rem;
-  }
-
-  button {
-    padding: 0.5rem 1rem;
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-  }
-
-  button:hover {
-    background-color: #2a4cda;
-  }
-
-  .error {
-    color: var(--error-color);
-    padding: 1rem;
-    background-color: rgba(220, 53, 69, 0.1);
-    border-radius: 4px;
-    margin-top: 1rem;
-  }
-
-  /* AI Chat specific styles */
-  .chat-interface {
-    display: flex;
-    flex-direction: column;
-    height: 500px;
-  }
-
-  .chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-  }
-
-  .message {
-    margin-bottom: 1rem;
-    padding: 0.75rem;
-    border-radius: 8px;
-    max-width: 70%;
-  }
-
-  .message.ai {
-    background-color: #e9f5ff;
-    align-self: flex-start;
-  }
-
-  .message.user {
-    background-color: #e3f2fd;
-    align-self: flex-end;
-    margin-left: auto;
-  }
-
-  .chat-input {
-    display: flex;
-  }
-
-  .chat-input textarea {
-    flex: 1;
-    padding: 0.75rem;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    resize: none;
-    min-height: 80px;
-    margin-right: 0.5rem;
-  }
-
-  /* Responsive adjustments */
+  
   @media (max-width: 768px) {
-    nav ul {
-      flex-direction: column;
-    }
-
     .dashboard-grid {
       grid-template-columns: 1fr;
     }
   }
-
-  .transaction-list {
-    list-style: none;
-    padding: 0;
+  
+  .loading, .error-message {
+    text-align: center;
+    padding: 2rem;
+    background-color: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
   }
-
-  .transaction-list li {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--border-color);
+  
+  .error-message {
+    color: var(--danger);
+  }
+  
+  .summary-stats {
     display: flex;
     justify-content: space-between;
+    margin-top: 1rem;
   }
-
-  .transaction-list .date {
-    flex: 0 0 100px;
-  }
-
-  .transaction-list .description {
+  
+  .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     flex: 1;
-    margin: 0 1rem;
+    padding: 0.5rem;
   }
-
-  .transaction-list .amount {
-    flex: 0 0 100px;
+  
+  .stat-label {
+    font-size: 0.875rem;
+    color: var(--light-text-muted);
+    margin-bottom: 0.25rem;
+  }
+  
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  
+  .income {
+    color: var(--success);
+  }
+  
+  .expense {
+    color: var(--danger);
+  }
+  
+  .balance {
+    color: var(--primary);
+  }
+  
+  .transaction-list {
+    margin-top: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  
+  .empty-message {
+    text-align: center;
+    color: var(--light-text-muted);
+    padding: 2rem 0;
+  }
+  
+  .category-summary {
+    margin-top: 1rem;
+  }
+  
+  .category-item {
+    margin-bottom: 1rem;
+  }
+  
+  .category-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+  }
+  
+  .category-name {
+    font-weight: 500;
+  }
+  
+  .category-amount {
+    font-weight: 600;
+  }
+  
+  .category-bar {
+    height: 8px;
+    background-color: var(--light-bg-darker);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.25rem;
+  }
+  
+  .category-progress {
+    height: 100%;
+    background-color: var(--primary);
+    border-radius: 4px;
+  }
+  
+  .category-percentage {
+    font-size: 0.75rem;
+    color: var(--light-text-muted);
     text-align: right;
-    font-weight: bold;
+    display: block;
+  }
+  
+  .mock-chart {
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+    border: 1px dashed var(--light-border);
+    border-radius: var(--radius-md);
+    margin-top: 1rem;
+  }
+  
+  .mock-bars {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    width: 100%;
+    height: 100px;
+    margin-top: 1rem;
+  }
+  
+  .mock-bar {
+    width: 30px;
+    background-color: var(--primary-light);
+    border-radius: 4px 4px 0 0;
   }
 </style>
