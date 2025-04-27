@@ -78,15 +78,24 @@
     try {
       // Load accounts
       const accountResult = await invoke<string>("get_accounts");
-      accountData = JSON.parse(accountResult);
+      accountData = JSON.parse(accountResult).map((account: any) => ({
+        ...account,
+        id: account.account_id // Set the id alias for UI
+      }));
       
       // Load categories
       const categoryResult = await invoke<string>("get_categories");
-      categoryData = JSON.parse(categoryResult);
+      categoryData = JSON.parse(categoryResult).map((category: any) => ({
+        ...category,
+        id: category.category_id // Set the id alias for UI
+      }));
       
       // Load tags
       const tagResult = await invoke<string>("get_tags");
-      tagData = JSON.parse(tagResult);
+      tagData = JSON.parse(tagResult).map((tag: any) => ({
+        ...tag,
+        id: tag.tag_id // Set the id alias for UI
+      }));
       
       loading = false;
     } catch (err) {
@@ -129,6 +138,7 @@
     
     try {
       let result;
+      console.log( newAccount )
       
       if (activeTable === "accounts") {
         result = await invoke("add_account", {
@@ -203,7 +213,10 @@
   // Single item delete function
   function deleteItem(id: number) {
     // Add the item to the selection and then delete it
+    console.log("deleteItem",id)
     selectedItems[activeTable].add(id);
+    console.log("activeTable",activeTable)
+    console.log("selectedItems",selectedItems[activeTable])
     deleteSelectedItems();
   }
   
@@ -212,11 +225,14 @@
                       activeTable === "categories" ? "カテゴリ" : "タグ";
     
     const count = selectedItems[activeTable].size;
+    console.log("selectedItems",selectedItems[activeTable])
+    console.log("count",count)
     if (count === 0) return;
     
-    if (!confirm(`選択した${count}個の${tableType}を削除しますか？この操作は元に戻せません。`)) {
-      return;
-    }
+    //if (!confirm(`選択した${count}個の${tableType}を削除しますか？この操作は元に戻せません。`)) {
+    //  console.log("confirm")
+    //  return;
+    //}
     
     let deleted = 0;
     let errors = [];
@@ -427,7 +443,7 @@
                       </span>
                     </td>
                     <td class="actions">
-                      <button class="icon-button edit">✏️</button>
+                      <!-- <button class="icon-button edit">✏️</button>a  -->
                       <button 
                         class="icon-button delete" 
                         on:click={() => deleteItem(account.id)}
@@ -474,7 +490,7 @@
                       {/if}
                     </td>
                     <td class="actions">
-                      <button class="icon-button edit">✏️</button>
+                      <!-- <button class="icon-button edit">✏️</button> -->
                       <button 
                         class="icon-button delete" 
                         on:click={() => deleteItem(category.id)}
@@ -501,7 +517,7 @@
                     <td>{tag.id}</td>
                     <td>{tag.name}</td>
                     <td class="actions">
-                      <button class="icon-button edit">✏️</button>
+                      <!-- <button class="icon-button edit">✏️</button> -->
                       <button 
                         class="icon-button delete" 
                         on:click={() => deleteItem(tag.id)}
