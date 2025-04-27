@@ -21,6 +21,7 @@
     try {
       // Get list of CSV files
       const result = await invoke<string>("get_csv_files");
+      console.log("get_csv_file execute")
       csvFiles = JSON.parse(result);
       loading = false;
     } catch (err) {

@@ -213,7 +213,7 @@ class DatabaseManager:
     def get_csv_files(self):
         """Get list of CSV files in data/csv/ directory."""
         script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-        csv_dir = script_dir.parent.parent.parent / 'data' / 'csv'
+        csv_dir = script_dir.parent.parent / 'data' / 'csv'
         if not csv_dir.exists():
             csv_dir.mkdir(parents=True, exist_ok=True)
         
