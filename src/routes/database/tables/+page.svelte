@@ -1,70 +1,92 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/tauri";
+  import { invoke } from "@tauri-apps/api/core";
+  
+  // Define types for database entries
+  interface Account {
+    account_id: number;
+    id: number; // alias for account_id for UI display
+    name: string;
+    account_type: string;
+    type: string; // alias for account_type for UI display
+    currency: string;
+    created_at?: string;
+    // Additional frontend-only properties
+    balance?: number;
+  }
+  
+  interface Category {
+    category_id: number;
+    id: number; // alias for category_id for UI display
+    name: string;
+    type: string;
+    created_at?: string;
+    // Additional frontend-only properties
+    parent_id?: number | null;
+  }
+  
+  interface Tag {
+    tag_id: number;
+    id: number; // alias for tag_id for UI display
+    name: string;
+    created_at?: string;
+  }
+  
+  type TableId = "accounts" | "categories" | "tags";
   
   // State variables
   let loading = true;
-  let error = null;
-  let activeTable = "accounts"; // Default active table
-  let tables = [
+  let error: any = null;
+  let activeTable: "accounts" | "categories" | "tags" = "accounts"; // Default active table
+  const tables = [
     { id: "accounts", name: "口座", icon: "💰" },
     { id: "categories", name: "カテゴリ", icon: "🏷️" },
     { id: "tags", name: "タグ", icon: "🔖" }
   ];
   
-  // Mock data for each table
-  let accountData = [
-    { id: 1, name: "現金", type: "現金", balance: 25000 },
-    { id: 2, name: "銀行口座", type: "銀行", balance: 450000 },
-    { id: 3, name: "クレジットカード", type: "カード", balance: -75000 },
-    { id: 4, name: "電子マネー", type: "その他", balance: 15000 }
-  ];
+  // Database data
+  let accountData: Account[] = [];
+  let categoryData: Category[] = [];
+  let tagData: Tag[] = [];
   
-  let categoryData = [
-    { id: 1, name: "食費", type: "支出", parent_id: null },
-    { id: 2, name: "外食", type: "支出", parent_id: 1 },
-    { id: 3, name: "食料品", type: "支出", parent_id: 1 },
-    { id: 4, name: "住居費", type: "支出", parent_id: null },
-    { id: 5, name: "給料", type: "収入", parent_id: null },
-    { id: 6, name: "ボーナス", type: "収入", parent_id: null },
-    { id: 7, name: "交通費", type: "支出", parent_id: null },
-    { id: 8, name: "娯楽", type: "支出", parent_id: null }
-  ];
-  
-  let tagData = [
-    { id: 1, name: "固定費" },
-    { id: 2, name: "変動費" },
-    { id: 3, name: "必須" },
-    { id: 4, name: "娯楽" },
-    { id: 5, name: "旅行" },
-    { id: 6, name: "贈り物" }
-  ];
+  // Selected items for deletion
+  let selectedItems: {
+    accounts: Set<number>;
+    categories: Set<number>;
+    tags: Set<number>;
+  } = {
+    accounts: new Set<number>(),
+    categories: new Set<number>(),
+    tags: new Set<number>()
+  };
   
   // New item form data
-  let newAccount = { name: "", type: "銀行", balance: 0 };
-  let newCategory = { name: "", type: "支出", parent_id: null };
+  let newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
+  let newCategory = { name: "", type: "支出", parent_id: null as number | null };
   let newTag = { name: "" };
   
   let showAddForm = false;
   let formError = "";
+  let successMessage = "";
+  let successTimer: number | null = null;
   
-  onMount(async () => {
+  // Load all data from database
+  async function loadAllData() {
+    loading = true;
+    error = null;
+    
     try {
-      // In a real app, we would load the actual data from the database
-      // For now, we'll just simulate loading
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Simulated database calls
-      /* 
-      const accountResult = await invoke("get_accounts");
+      // Load accounts
+      const accountResult = await invoke<string>("get_accounts");
       accountData = JSON.parse(accountResult);
       
-      const categoryResult = await invoke("get_categories");
+      // Load categories
+      const categoryResult = await invoke<string>("get_categories");
       categoryData = JSON.parse(categoryResult);
       
-      const tagResult = await invoke("get_tags");
+      // Load tags
+      const tagResult = await invoke<string>("get_tags");
       tagData = JSON.parse(tagResult);
-      */
       
       loading = false;
     } catch (err) {
@@ -72,21 +94,27 @@
       error = err;
       loading = false;
     }
+  }
+  
+  onMount(async () => {
+    await loadAllData();
   });
   
-  function setActiveTable(tableId) {
+  function setActiveTable(tableId: "accounts" | "categories" | "tags") {
     activeTable = tableId;
     showAddForm = false;
     formError = "";
+    successMessage = "";
     
     // Reset form data
-    newAccount = { name: "", type: "銀行", balance: 0 };
+    newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
     newCategory = { name: "", type: "支出", parent_id: null };
     newTag = { name: "" };
   }
   
   async function addItem() {
     formError = "";
+    successMessage = "";
     
     if (activeTable === "accounts" && !newAccount.name) {
       formError = "口座名を入力してください";
@@ -100,24 +128,57 @@
     }
     
     try {
-      // In a real app, we would save the new item to the database
-      // For now, we'll just add it to our mock data
+      let result;
       
       if (activeTable === "accounts") {
-        const newId = Math.max(...accountData.map(item => item.id)) + 1;
-        accountData = [...accountData, { id: newId, ...newAccount }];
-        newAccount = { name: "", type: "銀行", balance: 0 };
+        result = await invoke("add_account", {
+          name: newAccount.name,
+          accountType: newAccount.account_type,
+          currency: newAccount.currency
+        });
+        
+        // Clear form
+        newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
       } else if (activeTable === "categories") {
-        const newId = Math.max(...categoryData.map(item => item.id)) + 1;
-        categoryData = [...categoryData, { id: newId, ...newCategory }];
+        result = await invoke("add_category", {
+          name: newCategory.name,
+          categoryType: newCategory.type
+        });
+        
+        // Clear form
         newCategory = { name: "", type: "支出", parent_id: null };
       } else if (activeTable === "tags") {
-        const newId = Math.max(...tagData.map(item => item.id)) + 1;
-        tagData = [...tagData, { id: newId, ...newTag }];
+        result = await invoke("add_tag", {
+          name: newTag.name
+        });
+        
+        // Clear form
         newTag = { name: "" };
       }
       
-      showAddForm = false;
+      // Parse result
+      const resultData = JSON.parse(result as string);
+      
+      if (resultData.success) {
+        // Show success message
+        successMessage = `${activeTable === "accounts" ? "口座" : 
+                          activeTable === "categories" ? "カテゴリ" : "タグ"}
+                          を追加しました`;
+        
+        // Clear message after a delay
+        if (successTimer) clearTimeout(successTimer);
+        successTimer = setTimeout(() => {
+          successMessage = "";
+        }, 3000);
+        
+        // Reload data
+        await loadAllData();
+        
+        // Close form
+        showAddForm = false;
+      } else {
+        formError = (resultData as any).error || "追加に失敗しました";
+      }
     } catch (err) {
       console.error("Failed to add item:", err);
       formError = `アイテムの追加に失敗しました: ${err}`;
@@ -127,27 +188,84 @@
   function toggleAddForm() {
     showAddForm = !showAddForm;
     formError = "";
+    successMessage = "";
   }
   
-  async function deleteItem(id) {
-    if (!confirm("本当に削除しますか？この操作は元に戻せません。")) {
+  function toggleItemSelection(tableId: TableId, itemId: number) {
+    if (selectedItems[tableId].has(itemId)) {
+      selectedItems[tableId].delete(itemId);
+    } else {
+      selectedItems[tableId].add(itemId);
+    }
+    selectedItems = { ...selectedItems }; // Trigger reactivity
+  }
+
+  // Single item delete function
+  function deleteItem(id: number) {
+    // Add the item to the selection and then delete it
+    selectedItems[activeTable].add(id);
+    deleteSelectedItems();
+  }
+  
+  async function deleteSelectedItems() {
+    const tableType = activeTable === "accounts" ? "口座" : 
+                      activeTable === "categories" ? "カテゴリ" : "タグ";
+    
+    const count = selectedItems[activeTable].size;
+    if (count === 0) return;
+    
+    if (!confirm(`選択した${count}個の${tableType}を削除しますか？この操作は元に戻せません。`)) {
       return;
     }
     
+    let deleted = 0;
+    let errors = [];
+    
     try {
-      // In a real app, we would delete the item from the database
-      // For now, we'll just remove it from our mock data
+      for (const id of selectedItems[activeTable]) {
+        let result;
+        
+        if (activeTable === "accounts") {
+          result = await invoke("delete_account", { accountId: id });
+        } else if (activeTable === "categories") {
+          result = await invoke("delete_category", { categoryId: id });
+        } else if (activeTable === "tags") {
+          result = await invoke("delete_tag", { tagId: id });
+        }
+        
+        const resultData = JSON.parse(result as string);
+        
+        if ((resultData as any).success) {
+          deleted++;
+        } else {
+          errors.push(`ID ${id}: ${resultData.error}`);
+        }
+      }
       
-      if (activeTable === "accounts") {
-        accountData = accountData.filter(item => item.id !== id);
-      } else if (activeTable === "categories") {
-        categoryData = categoryData.filter(item => item.id !== id);
-      } else if (activeTable === "tags") {
-        tagData = tagData.filter(item => item.id !== id);
+      // Clear selection
+      selectedItems[activeTable] = new Set();
+      selectedItems = { ...selectedItems };
+      
+      // Show result
+      if (deleted > 0) {
+        successMessage = `${deleted}個の${tableType}を削除しました`;
+        
+        // Clear message after a delay
+        if (successTimer) clearTimeout(successTimer);
+        successTimer = setTimeout(() => {
+          successMessage = "";
+        }, 3000);
+        
+        // Reload data
+        await loadAllData();
+      }
+      
+      if (errors.length > 0) {
+        formError = `${errors.length}個の${tableType}を削除できませんでした: ${errors.join(', ')}`;
       }
     } catch (err) {
-      console.error("Failed to delete item:", err);
-      alert(`削除に失敗しました: ${err}`);
+      console.error("Failed to delete items:", err);
+      formError = `削除に失敗しました: ${err}`;
     }
   }
 </script>
@@ -169,9 +287,9 @@
     <div class="database-container">
       <div class="table-navigation">
         <ul>
-          {#each tables as table}
-            <li class:active={activeTable === table.id}>
-              <button on:click={() => setActiveTable(table.id)}>
+    {#each tables as table}
+      <li class:active={activeTable === table.id as TableId}>
+        <button on:click={() => setActiveTable(table.id as TableId)}>
                 <span class="table-icon">{table.icon}</span>
                 <span class="table-name">{table.name}</span>
               </button>
@@ -304,8 +422,8 @@
                     <td>{account.name}</td>
                     <td>{account.type}</td>
                     <td class="text-right">
-                      <span class={account.balance < 0 ? 'negative' : ''}>
-                        ¥{account.balance.toLocaleString()}
+                      <span class={account.balance !== undefined && account.balance < 0 ? 'negative' : ''}>
+                        ¥{account.balance !== undefined ? account.balance.toLocaleString() : '0'}
                       </span>
                     </td>
                     <td class="actions">

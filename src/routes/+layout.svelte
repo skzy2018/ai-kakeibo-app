@@ -107,7 +107,11 @@
               <div 
                 class="menu-header" 
                 on:click={() => toggleMenu(item.id)}
+                on:keydown={(e) => e.key === 'Enter' && toggleMenu(item.id)}
                 class:active={currentPath && currentPath.startsWith(`/${item.id}`)}
+                role="button"
+                tabindex="0"
+                aria-expanded={expandedMenus.has(item.id)}
               >
                 <span class="menu-icon">{item.icon}</span>
                 <span class="menu-label">{item.label}</span>

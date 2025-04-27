@@ -1,0 +1,13 @@
+transaction_date,account_name,category_type,category_name,amount,item_name,tags,description,memo
+2025-04-03,PayPay,expense,食費,-850,コンビニ,軽食,朝食購入,出勤途中
+2025-04-05,PayPay,expense,交通費,-520,バス代,通勤,バス乗車,雨天時
+2025-04-08,PayPay,expense,食費,-1200,ランチ,外食,社食,同僚と
+2025-04-10,PayPay,income,ポイント還元,350,ポイント,キャッシュバック,買い物特典,キャンペーン
+2025-04-12,PayPay,expense,コーヒー,-450,カフェ,飲料,コーヒーブレイク,仕事の合間
+2025-04-15,PayPay,expense,書籍,-980,電子書籍,読書,小説,通勤読書用
+2025-04-17,PayPay,expense,食費,-2100,デリバリー,外食,夕食宅配,残業時
+2025-04-19,PayPay,expense,日用品,-650,ドラッグストア,消耗品,ティッシュペーパー,
+2025-04-22,PayPay,income,送金,5000,友人から,返済,ランチ代立替分,先週分
+2025-04-24,PayPay,expense,ギフト,-3000,オンラインギフト,プレゼント,友人誕生日,デジタルギフト
+2025-04-26,PayPay,expense,サブスク,-980,音楽配信,エンタメ,サブスクリプション,月額料金
+2025-04-28,PayPay,expense,スキルアップ,-1500,ウェビナー,学習,オンライン講座,1回分

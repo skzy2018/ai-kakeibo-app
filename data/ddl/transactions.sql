@@ -4,6 +4,7 @@ CREATE TABLE transactions (
     category_id INTEGER NOT NULL,
     log_id INTEGER ,
     amount REAL NOT NULL,             -- 支出は負数、収入は正数
+    item_name TEXT,
     description TEXT,
     transaction_date DATETIME NOT NULL,
     memo TEXT,

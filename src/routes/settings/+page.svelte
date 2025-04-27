@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/tauri";
+  import { invoke } from "@tauri-apps/api/core";
   
   // Settings categories
   let activeCategory = "general";
@@ -106,7 +106,7 @@
     }
   }
   
-  async function exportData(format) {
+  async function exportData(format: string) {
     try {
       alert(`${format.toUpperCase()}形式でデータをエクスポートします...\nこの機能は実際のアプリで実装されます。`);
       
@@ -152,11 +152,11 @@
     }
   }
   
-  function setActiveCategory(categoryId) {
+  function setActiveCategory(categoryId: string) {
     activeCategory = categoryId;
   }
   
-  function formatTimestamp(date) {
+  function formatTimestamp(date: string) {
     return new Date(date).toLocaleString('ja-JP');
   }
 </script>
