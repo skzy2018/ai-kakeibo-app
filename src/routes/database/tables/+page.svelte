@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { confirm } from "@tauri-apps/plugin-dialog";
   
   // Define types for database entries
   interface Account {
@@ -251,6 +252,7 @@
         } else if (activeTable === "tags") {
           result = await invoke("delete_tag", { tagId: id });
         }
+        console.log(result)
         
         const resultData = JSON.parse(result as string);
         

@@ -225,7 +225,11 @@ fn add_transaction(
 // Master table management functions
 // Add account
 #[tauri::command]
-fn add_account(name: String, account_type: String, currency: Option<String>) -> Result<String, String> {
+fn add_account(
+    name: String,
+    account_type: String,
+    currency: Option<String>,
+) -> Result<String, String> {
     let python_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python-env");
     let python_executable = if cfg!(target_os = "windows") {
         python_env_path.join("Scripts/python")
@@ -464,6 +468,7 @@ pub fn run() {
     };
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(python_state)
         .invoke_handler(tauri::generate_handler![

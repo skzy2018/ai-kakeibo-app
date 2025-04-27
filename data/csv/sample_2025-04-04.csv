@@ -1,4 +1,0 @@
-transaction_date,accounts.name,categories.type,categories.name,transactions.amount,transactions.item_name,[tags.name,tags.name,...],transactions.description,transactions.memo
-2025-04-25,現金,支出,食費,-3500,スーパーでの買い物,[食料品,日用品],スーパーで食料品を購入,memo1
-2025-04-24,銀行口座,収入,給料,280000,4月分給与,[固定収入],会社からの給与,
-2025-04-23,銀行口座,支出,住居費,-15000,電気代,[固定費,公共料金],4月分の電気代,memo3
