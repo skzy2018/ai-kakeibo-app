@@ -9,5 +9,5 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 *.sqlite
-src-tauri/python-env/__pycache__
-src-tauri/python-env/lib
+src-tauri/python-env/__pycache__/
+src-tauri/python-env/lib/
