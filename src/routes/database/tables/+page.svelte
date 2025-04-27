@@ -4,29 +4,29 @@
   
   // Define types for database entries
   interface Account {
-    account_id: number;
+    //account_id: number;
     id: number; // alias for account_id for UI display
     name: string;
     account_type: string;
-    type: string; // alias for account_type for UI display
+    //type: string; // alias for account_type for UI display
     currency: string;
     created_at?: string;
     // Additional frontend-only properties
-    balance?: number;
+    //balance?: number;
   }
   
   interface Category {
-    category_id: number;
+    //category_id: number;
     id: number; // alias for category_id for UI display
     name: string;
     type: string;
     created_at?: string;
     // Additional frontend-only properties
-    parent_id?: number | null;
+    //parent_id?: number | null;
   }
   
   interface Tag {
-    tag_id: number;
+    //tag_id: number;
     id: number; // alias for tag_id for UI display
     name: string;
     created_at?: string;
@@ -61,8 +61,10 @@
   };
   
   // New item form data
-  let newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
-  let newCategory = { name: "", type: "支出", parent_id: null as number | null };
+  //let newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
+  let newAccount = { name: "", account_type: "銀行", currency: "JPY" };
+  //let newCategory = { name: "", type: "支出", parent_id: null as number | null };
+  let newCategory = { name: "", type: "支出" };
   let newTag = { name: "" };
   
   let showAddForm = false;
@@ -116,8 +118,9 @@
     successMessage = "";
     
     // Reset form data
-    newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
-    newCategory = { name: "", type: "支出", parent_id: null };
+    //newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
+    newAccount = { name: "", account_type: "銀行", currency: "JPY" };
+    newCategory = { name: "", type: "支出",};
     newTag = { name: "" };
   }
   
@@ -148,7 +151,8 @@
         });
         
         // Clear form
-        newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
+        //newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
+        newAccount = { name: "", account_type: "銀行", currency: "JPY"};
       } else if (activeTable === "categories") {
         result = await invoke("add_category", {
           name: newCategory.name,
@@ -156,7 +160,8 @@
         });
         
         // Clear form
-        newCategory = { name: "", type: "支出", parent_id: null };
+        //newCategory = { name: "", type: "支出", parent_id: null };
+        newCategory = { name: "", type: "支出" };
       } else if (activeTable === "tags") {
         result = await invoke("add_tag", {
           name: newTag.name
@@ -201,22 +206,20 @@
     successMessage = "";
   }
   
-  function toggleItemSelection(tableId: TableId, itemId: number) {
-    if (selectedItems[tableId].has(itemId)) {
-      selectedItems[tableId].delete(itemId);
-    } else {
-      selectedItems[tableId].add(itemId);
-    }
-    selectedItems = { ...selectedItems }; // Trigger reactivity
-  }
+  //function toggleItemSelection(tableId: TableId, itemId: number) {
+  //  if (selectedItems[tableId].has(itemId)) {
+  //    selectedItems[tableId].delete(itemId);
+  //  } else {
+  //    selectedItems[tableId].add(itemId);
+  //  }
+  //  selectedItems = { ...selectedItems }; // Trigger reactivity
+  //}
 
   // Single item delete function
   function deleteItem(id: number) {
     // Add the item to the selection and then delete it
-    console.log("deleteItem",id)
     selectedItems[activeTable].add(id);
-    console.log("activeTable",activeTable)
-    console.log("selectedItems",selectedItems[activeTable])
+    //console.log("selectedItems",selectedItems[activeTable])
     deleteSelectedItems();
   }
   
@@ -346,7 +349,7 @@
                 
                 <div class="form-group">
                   <label for="accountType">種類</label>
-                  <select id="accountType" bind:value={newAccount.type}>
+                  <select id="accountType" bind:value={newAccount.account_type}>
                     <option value="現金">現金</option>
                     <option value="銀行">銀行</option>
                     <option value="カード">クレジットカード</option>
@@ -355,7 +358,7 @@
                   </select>
                 </div>
                 
-                <div class="form-group">
+                <!-- <div class="form-group">
                   <label for="accountBalance">残高</label>
                   <input 
                     type="number" 
@@ -363,7 +366,7 @@
                     bind:value={newAccount.balance} 
                     placeholder="0"
                   />
-                </div>
+                </div> -->
               </div>
             {:else if activeTable === "categories"}
               <div class="form-grid">
@@ -386,7 +389,7 @@
                   </select>
                 </div>
                 
-                <div class="form-group">
+                <!-- <div class="form-group">
                   <label for="categoryParent">親カテゴリ (オプション)</label>
                   <select 
                     id="categoryParent" 
@@ -397,7 +400,7 @@
                       <option value={category.id}>{category.name}</option>
                     {/each}
                   </select>
-                </div>
+                </div>  -->
               </div>
             {:else if activeTable === "tags"}
               <div class="form-group">
@@ -427,7 +430,7 @@
                   <th>ID</th>
                   <th>口座名</th>
                   <th>種類</th>
-                  <th class="text-right">残高</th>
+                  <!-- <th class="text-right">残高</th> -->
                   <th class="actions-column">操作</th>
                 </tr>
               </thead>
@@ -436,12 +439,13 @@
                   <tr>
                     <td>{account.id}</td>
                     <td>{account.name}</td>
-                    <td>{account.type}</td>
-                    <td class="text-right">
+                    <!-- <td>{account.type}</td> -->
+                    <td>{account.account_type}</td>
+                    <!-- <td class="text-right">
                       <span class={account.balance !== undefined && account.balance < 0 ? 'negative' : ''}>
                         ¥{account.balance !== undefined ? account.balance.toLocaleString() : '0'}
                       </span>
-                    </td>
+                    </td> -->
                     <td class="actions">
                       <!-- <button class="icon-button edit">✏️</button>a  -->
                       <button 
@@ -462,7 +466,7 @@
                   <th>ID</th>
                   <th>カテゴリ名</th>
                   <th>種類</th>
-                  <th>親カテゴリ</th>
+                  <!-- <th>親カテゴリ</th> -->
                   <th class="actions-column">操作</th>
                 </tr>
               </thead>
@@ -470,25 +474,26 @@
                 {#each categoryData as category}
                   <tr>
                     <td>{category.id}</td>
-                    <td>
+                    <td>{category.name}</td>
+                    <!-- <td>
                       {#if category.parent_id}
                         <span class="indent">└ {category.name}</span>
                       {:else}
                         <strong>{category.name}</strong>
                       {/if}
-                    </td>
+                    </td> -->
                     <td>
                       <span class="badge {category.type === '収入' ? 'badge-success' : 'badge-primary'}">
                         {category.type}
                       </span>
                     </td>
-                    <td>
+                    <!-- <td>
                       {#if category.parent_id}
                         {categoryData.find(c => c.id === category.parent_id)?.name || '-'}
                       {:else}
                         -
                       {/if}
-                    </td>
+                    </td> -->
                     <td class="actions">
                       <!-- <button class="icon-button edit">✏️</button> -->
                       <button 
