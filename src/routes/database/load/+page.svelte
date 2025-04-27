@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { confirm } from "@tauri-apps/plugin-dialog";
   
   // State variables
   let loading = false;
@@ -21,6 +22,7 @@
     try {
       // Get list of CSV files
       const result = await invoke<string>("get_csv_files");
+      console.log("get_csv_file execute")
       csvFiles = JSON.parse(result);
       loading = false;
     } catch (err) {
@@ -31,7 +33,7 @@
   }
   
   async function loadCsvFile(filename: string) {
-    if (!confirm(`CSVファイル ${filename} をデータベースにロードしますか？`)) {
+    if (!await confirm(`CSVファイル ${filename} をデータベースにロードしますか？`)) {
       return;
     }
     
@@ -138,18 +140,18 @@
       <h3>CSVファイルのフォーマット</h3>
       <ul>
         <li>CSVファイルは最初の行がヘッダー行である必要があります。</li>
-        <li>ヘッダー行の形式: transaction_date,accounts.name,categories.type,categories.name,transactions.amount,transactions.item_name,[tags.name,tags.name,...],transactions.description,transactions.memo</li>
+        <li>ヘッダー行の形式: transaction_date,accounts.name,categories.type,categories.name,transactions.amount,transactions.item_name,tags.name|tags.name|...,transactions.description,transactions.memo</li>
         <li>日付は YYYY-MM-DD 形式を推奨します（例: 2025-04-25）。</li>
         <li>金額はマイナス符号（-）を使用して支出を表します（例: -5000）。</li>
         <li>カテゴリと口座は、存在する場合は名前で指定します。存在しない場合は自動的に作成されます。</li>
-        <li>タグは配列形式で指定します（例: [タグ1,タグ2,タグ3]）。</li>
+        <li>タグは配列形式で指定します（例:タグ1|タグ2|タグ3）。</li>
       </ul>
       
       <h3>サンプルCSVフォーマット:</h3>
-      <pre>transaction_date,accounts.name,categories.type,categories.name,transactions.amount,transactions.item_name,[tags.name,tags.name,...],transactions.description,transactions.memo
-2025-04-25,現金,支出,食費,-3500,スーパーでの買い物,[食料品,日用品],スーパーで食料品を購入,
-2025-04-24,銀行口座,収入,給料,280000,4月分給与,[固定収入],会社からの給与,
-2025-04-23,銀行口座,支出,住居費,-15000,電気代,[固定費,公共料金],4月分の電気代,</pre>
+      <pre>transaction_date,accounts.name,categories.type,categories.name,transactions.amount,transactions.item_name,tags.name|tags.name|...,transactions.description,transactions.memo
+2025-04-25,現金,支出,食費,-3500,スーパーでの買い物,食料品|日用品,スーパーで食料品を購入,
+2025-04-24,銀行口座,収入,給料,280000,4月分給与,固定収入,会社からの給与,
+2025-04-23,銀行口座,支出,住居費,-15000,電気代,固定費|公共料金,4月分の電気代,</pre>
     </div>
   </div>
 </div>

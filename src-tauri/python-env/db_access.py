@@ -213,7 +213,7 @@ class DatabaseManager:
     def get_csv_files(self):
         """Get list of CSV files in data/csv/ directory."""
         script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-        csv_dir = script_dir.parent.parent.parent / 'data' / 'csv'
+        csv_dir = script_dir.parent.parent / 'data' / 'csv'
         if not csv_dir.exists():
             csv_dir.mkdir(parents=True, exist_ok=True)
         
@@ -230,8 +230,8 @@ class DatabaseManager:
             dict: Result of the operation
         """
         script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-        csv_path = script_dir.parent.parent.parent / 'data' / 'csv' / filename
-        dust_dir = script_dir.parent.parent.parent / 'data' / 'dust'
+        csv_path = script_dir.parent.parent / 'data' / 'csv' / filename
+        dust_dir = script_dir.parent.parent / 'data' / 'dust'
         
         if not csv_path.exists():
             return {"success": False, "error": f"File not found: {filename}"}
@@ -291,8 +291,8 @@ class DatabaseManager:
                             # Remove brackets if present
                             if tags_str.startswith('[') and tags_str.endswith(']'):
                                 tags_str = tags_str[1:-1]
-                            # Split by comma
-                            tags = [tag.strip() for tag in tags_str.split(',')]
+                            # Split by pipe
+                            tags = [tag.strip() for tag in tags_str.split('|')]
                         
                         description = row[7].strip() if len(row) > 7 else ""
                         memo = row[8].strip() if len(row) > 8 else ""
