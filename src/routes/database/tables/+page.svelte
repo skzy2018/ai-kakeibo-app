@@ -36,8 +36,6 @@
   type TableId = "accounts" | "categories" | "tags";
   
   // State variables
-  let loading = true;
-  let error: any = null;
   let activeTable: "accounts" | "categories" | "tags" = "accounts"; // Default active table
   const tables = [
     { id: "accounts", name: "口座", icon: "💰" },
@@ -69,9 +67,13 @@
   let newTag = { name: "" };
   
   let showAddForm = false;
+  let loading = true;
+  let error: any = null;
+  let errors: string[] = [];
   let formError = "";
   let successMessage = "";
   let successTimer: number | null = null;
+  let errorTimer: number | null = null;
   
   // Load all data from database
   async function loadAllData() {
@@ -203,6 +205,7 @@
   
   function toggleAddForm() {
     showAddForm = !showAddForm;
+    errors = []
     formError = "";
     successMessage = "";
   }
@@ -239,7 +242,7 @@
     //}
     
     let deleted = 0;
-    let errors = [];
+    errors = [];
     
     try {
       for (const id of selectedItems[activeTable]) {
@@ -283,11 +286,17 @@
       
       if (errors.length > 0) {
         formError = `${errors.length}個の${tableType}を削除できませんでした: ${errors.join(', ')}`;
+        if (errorTimer) clearTimeout(errorTimer);
+        errorTimer = setTimeout(() => {
+          errors = [];
+          formError = "";
+        }, 3000);
       }
     } catch (err) {
       console.error("Failed to delete items:", err);
       formError = `削除に失敗しました: ${err}`;
     }
+    console.log("delete ends ... ",errors,formError)
   }
 </script>
 
@@ -305,6 +314,12 @@
       <button on:click={() => window.location.reload()}>再試行</button>
     </div>
   {:else}
+    {#if errors.length > 0 || formError }
+      <div class="error-message">
+        {#if errors.length > 0}<p>エラーが発生しました: {errors.join(', ')}</p>{/if}
+        {#if formError}<p>{formError}</p>{/if}
+      </div>
+    {/if}
     <div class="database-container">
       <div class="table-navigation">
         <ul>
@@ -329,6 +344,12 @@
             {showAddForm ? '追加をキャンセル' : '新規追加'}
           </button>
         </div>
+        
+        {#if successMessage}
+          <div class="success-message">
+            <p>{successMessage}</p>
+          </div>
+        {/if}
         
         {#if showAddForm}
           <div class="add-form">
@@ -560,6 +581,15 @@
   
   .error-message {
     color: var(--danger);
+  }
+  
+  .success-message {
+    text-align: center;
+    padding: 1rem;
+    background-color: rgba(16, 185, 129, 0.1);
+    color: rgb(16, 185, 129);
+    border-radius: var(--radius-md);
+    margin-bottom: 1.5rem;
   }
   
   .database-container {
