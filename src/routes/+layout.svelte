@@ -4,7 +4,7 @@
   import '../styles/global.css';
 
   // The initial menu structure
-  let menuItems = [
+  let menuItems: any = [
     { id: 'ai-chat', label: 'AI-CHAT', path: '/ai-chat', icon: '💬' },
     { id: 'dashboard', label: 'DASHBOARD', path: '/dashboard', icon: '📊' },
     { id: 'add-sqlcomponent', label: 'ADD_SQLCOMPONENT', path: '/add-sqlcomponent', icon: '➕' },
@@ -33,21 +33,35 @@
     { id: 'settings', label: 'SETTINGS', path: '/settings', icon: '⚙️' }
   ];
 
-  // Mock data for demonstration purposes
-  let sqlComponents = [
-    { id: 'sql1', name: 'Monthly Expenses', path: '/sqlcomponents/monthly-expenses' },
-    { id: 'sql2', name: 'Income Overview', path: '/sqlcomponents/income-overview' }
-  ];
-
+  // SQLコンポーネントのデータ
+  let sqlComponents: any[] = [];
   let dataCollectors = [
     { id: 'collector1', name: 'Bank CSV Import', path: '/data-collectors/bank-csv' },
     { id: 'collector2', name: 'Credit Card Data', path: '/data-collectors/credit-card' }
   ];
 
   // Load data and populate menu
-  onMount(() => {
-    // Populate the SQL components submenu
-    menuItems = menuItems.map(item => {
+  onMount(async () => {
+    try {
+      // SQLコンポーネントを読み込む
+      const { invoke } = await import('@tauri-apps/api/core');
+      const result = await invoke('get_sql_components');
+      
+      const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+      if (Array.isArray(parsedResult)) {
+        sqlComponents = parsedResult.map(comp => ({
+          id: comp.name,
+          name: comp.name,
+          path: `/sqlcomponents/${comp.name}`
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to load SQL components:", error);
+      sqlComponents = [];
+    }
+    
+    // メニューを更新
+    menuItems = menuItems.map((item: { id: string; }) => {
       if (item.id === 'sqlcomponents') {
         return {
           ...item,
@@ -79,7 +93,7 @@
   // State for tracking expanded menu items
   let expandedMenus = new Set(['database']); // Default expanded items
 
-  function toggleMenu(id) {
+  function toggleMenu(id: string) {
     if (expandedMenus.has(id)) {
       expandedMenus.delete(id);
     } else {

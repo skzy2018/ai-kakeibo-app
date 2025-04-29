@@ -461,6 +461,145 @@ fn load_csv_file(filename: String) -> Result<String, String> {
     }
 }
 
+// SQL component management functions
+// Save SQL component
+#[tauri::command]
+fn save_sql_component(component: serde_json::Value) -> Result<String, String> {
+    let python_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python-env");
+    let python_executable = if cfg!(target_os = "windows") {
+        python_env_path.join("Scripts/python")
+    } else {
+        python_env_path.join("bin/python")
+    };
+
+    // 一時ファイルを作成して、コンポーネントをJSONとして保存
+    let temp_file = python_env_path.join("temp_component.json");
+    let mut file = std::fs::File::create(&temp_file)
+        .map_err(|e| format!("Failed to create temp file: {}", e))?;
+    
+    // コンポーネントを一時ファイルに書き込む
+    serde_json::to_writer_pretty(&mut file, &component)
+        .map_err(|e| format!("Failed to write component to temp file: {}", e))?;
+
+    // ファイルからコンポーネントを読み込むPythonスクリプト
+    let script = format!(
+        "import sys, json, os; sys.path.append('{}'); from db_access import save_sql_component; temp_file = '{}'; component = json.load(open(temp_file, 'r', encoding='utf-8')); result = save_sql_component(component); print(json.dumps(result)); os.remove(temp_file)",
+        python_env_path.to_str().unwrap(),
+        temp_file.to_str().unwrap().replace("\\", "\\\\")
+    );
+
+    let output = Command::new(python_executable)
+        .arg("-c")
+        .arg(script)
+        .output()
+        .map_err(|e| format!("Failed to execute Python script: {}", e))?;
+
+    // 念のため一時ファイルを削除（Pythonで削除されなかった場合）
+    if temp_file.exists() {
+        let _ = std::fs::remove_file(&temp_file);
+    }
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
+// Get all SQL components
+#[tauri::command]
+fn get_sql_components() -> Result<String, String> {
+    let python_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python-env");
+    let python_executable = if cfg!(target_os = "windows") {
+        python_env_path.join("Scripts/python")
+    } else {
+        python_env_path.join("bin/python")
+    };
+
+    let script = format!(
+        "import sys; sys.path.append('{}'); from db_access import get_sql_components; print(get_sql_components())",
+        python_env_path.to_str().unwrap()
+    );
+
+    let output = Command::new(python_executable)
+        .arg("-c")
+        .arg(script)
+        .output()
+        .map_err(|e| format!("Failed to execute Python script: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
+// Get a specific SQL component by name
+#[tauri::command]
+fn get_sql_component(name: String) -> Result<String, String> {
+    let python_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python-env");
+    let python_executable = if cfg!(target_os = "windows") {
+        python_env_path.join("Scripts/python")
+    } else {
+        python_env_path.join("bin/python")
+    };
+
+    let script = format!(
+        "import sys; sys.path.append('{}'); from db_access import get_sql_component; print(get_sql_component({:?}))",
+        python_env_path.to_str().unwrap(),
+        name
+    );
+
+    let output = Command::new(python_executable)
+        .arg("-c")
+        .arg(script)
+        .output()
+        .map_err(|e| format!("Failed to execute Python script: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
+// Run a SQL component with environment variables
+#[tauri::command]
+fn run_sql_component(name: String, env_vars: Option<serde_json::Value>) -> Result<String, String> {
+    let python_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python-env");
+    let python_executable = if cfg!(target_os = "windows") {
+        python_env_path.join("Scripts/python")
+    } else {
+        python_env_path.join("bin/python")
+    };
+
+    // Serialize the environment variables to a JSON string
+    let env_vars_json = match env_vars {
+        Some(vars) => serde_json::to_string(&vars)
+            .map_err(|e| format!("Failed to serialize environment variables: {}", e))?,
+        None => "{}".to_string(),
+    };
+
+    let script = format!(
+        "import sys, json; sys.path.append('{}'); from db_access import run_sql_component; print(run_sql_component({:?}, json.loads('{}')))",
+        python_env_path.to_str().unwrap(),
+        name,
+        env_vars_json.replace("'", "\\'")
+    );
+
+    let output = Command::new(python_executable)
+        .arg("-c")
+        .arg(script)
+        .output()
+        .map_err(|e| format!("Failed to execute Python script: {}", e))?;
+
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let python_state = PythonState {
@@ -489,7 +628,12 @@ pub fn run() {
             delete_tag,
             // CSV file management
             get_csv_files,
-            load_csv_file
+            load_csv_file,
+            // SQL component management
+            save_sql_component,
+            get_sql_components,
+            get_sql_component,
+            run_sql_component
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

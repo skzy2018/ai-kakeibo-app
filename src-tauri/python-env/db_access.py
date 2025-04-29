@@ -489,3 +489,164 @@ def get_csv_files():
 def load_csv_file(filename):
     result = db.load_csv_file(filename)
     return json.dumps(result, default=db.json_serializer)
+
+# SQL component management functions
+def save_sql_component(component):
+    """Save a SQL component to a JSON file.
+    
+    Args:
+        component (dict): The SQL component object
+        
+    Returns:
+        dict: Result of the operation
+    """
+    try:
+        # Get the SQL component name
+        name = component.get('name')
+        if not name:
+            return {"success": False, "error": "SQL component name is required"}
+        
+        # Validate component name (only alphanumeric and no spaces)
+        import re
+        name_regex = re.compile(r'^[A-Za-z0-9_-]+$')
+        if not name_regex.match(name):
+            return {"success": False, "error": "Component name should only contain alphanumeric characters, underscores, and hyphens"}
+        
+        # Get the directory where the script is located
+        script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+        # Navigate to the data/component directory from script location
+        component_dir = script_dir.parent.parent / 'data' / 'component'
+        component_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+        
+        # File path for the component
+        component_path = component_dir / f"{name}.json"
+        
+        # Sanitize the input data to ensure there are no control characters
+        # For d3code and sql which may contain JS/SQL code with indentation
+        if 'd3code' in component and component['d3code'] is not None:
+            component['d3code'] = component['d3code'].replace('\t', '  ')  # Replace tabs with spaces
+        
+        if 'sql' in component and component['sql'] is not None:
+            component['sql'] = component['sql'].replace('\t', '  ')  # Replace tabs with spaces
+        
+        # Write the component to file
+        with open(component_path, 'w', encoding='utf-8') as f:
+            json.dump(component, f, ensure_ascii=False, indent=2, default=db.json_serializer)
+        
+        return {"success": True, "message": f"SQL component '{name}' saved successfully"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def get_sql_components():
+    """Get all SQL components.
+    
+    Returns:
+        list: List of SQL component names
+    """
+    try:
+        # Get the directory where the script is located
+        script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+        # Navigate to the data/component directory from script location
+        component_dir = script_dir.parent.parent / 'data' / 'component'
+        
+        if not component_dir.exists():
+            component_dir.mkdir(parents=True, exist_ok=True)
+            return []
+        
+        # Get all JSON files in the component directory
+        component_files = list(component_dir.glob('*.json'))
+        
+        # Extract component names from file names
+        components = []
+        for file in component_files:
+            try:
+                with open(file, 'r', encoding='utf-8') as f:
+                    component = json.load(f)
+                    components.append({
+                        "name": component.get('name', file.stem),
+                        "description": component.get('description', '')
+                    })
+            except Exception as e:
+                print(f"Error loading component {file}: {str(e)}")
+        
+        return components
+    except Exception as e:
+        print(f"Error getting SQL components: {str(e)}")
+        return []
+
+def get_sql_component(name):
+    """Get a specific SQL component by name.
+    
+    Args:
+        name (str): The name of the SQL component
+        
+    Returns:
+        dict: The SQL component
+    """
+    try:
+        # Get the directory where the script is located
+        script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+        # Navigate to the data/component directory from script location
+        component_dir = script_dir.parent.parent / 'data' / 'component'
+        
+        # File path for the component
+        component_path = component_dir / f"{name}.json"
+        
+        if not component_path.exists():
+            return {"success": False, "error": f"SQL component '{name}' not found"}
+        
+        # Read the component from file
+        with open(component_path, 'r', encoding='utf-8') as f:
+            component = json.load(f)
+        
+        return {"success": True, "component": component}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def run_sql_component(name, env_vars=None):
+    """Run a SQL component with environment variables.
+    
+    Args:
+        name (str): The name of the SQL component
+        env_vars (dict): Environment variables for the SQL
+        
+    Returns:
+        dict: Result of the operation
+    """
+    try:
+        # Get the SQL component
+        component_result = get_sql_component(name)
+        if not component_result.get("success", False):
+            return json.dumps(component_result)
+        
+        component = component_result.get("component", {})
+        
+        # Get the SQL from the component
+        sql = component.get("sql", "")
+        if not sql:
+            return json.dumps({"success": False, "error": "SQL is required"})
+        
+        # Replace environment variables in the SQL
+        if env_vars:
+            for var_name, var_value in env_vars.items():
+                sql = sql.replace(f"${var_name}", str(var_value))
+        
+        # Run the SQL
+        try:
+            df = db.execute_query_as_df(sql)
+            
+            # Convert DataFrame to JSON
+            return json.dumps({
+                "success": True,
+                "data": df.to_dict(orient="records"),
+                "columns": df.columns.tolist(),
+                "component": component
+            }, default=db.json_serializer)
+        except Exception as e:
+            return json.dumps({
+                "success": False,
+                "error": f"SQL execution error: {str(e)}",
+                "component": component
+            })
+    except Exception as e:
+        return json.dumps({"success": False, "error": str(e)})
