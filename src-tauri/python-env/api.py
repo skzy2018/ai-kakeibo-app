@@ -13,6 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import db_access
 
+
+import logging
+
+logging.basicConfig(level=logging.INFO,handlers=[logging.FileHandler("api_server.log") ] )
+
 # Create FastAPI application
 app = FastAPI(title="Kakeibo API Server")
 
@@ -26,18 +31,18 @@ app.add_middleware(
 )
 
 # Get temp directory for API server files
-def get_temp_dir():
-    temp_dir = os.path.join(os.path.expanduser("~"), ".kakeibo-api-server")
-    os.makedirs(temp_dir, exist_ok=True)
-    return temp_dir
+#def get_temp_dir():
+#    temp_dir = os.path.join(os.path.expanduser("~"), ".kakeibo-api-server")
+#    os.makedirs(temp_dir, exist_ok=True)
+#    return temp_dir
 
 # Create PID file for the API server
-def write_pid_file():
-    pid = os.getpid()
-    temp_dir = get_temp_dir()
-    pid_file = os.path.join(temp_dir, "api_server.pid")
-    with open(pid_file, "w") as f:
-        f.write(str(pid))
+#def write_pid_file():
+#    pid = os.getpid()
+#    temp_dir = get_temp_dir()
+#    pid_file = os.path.join(temp_dir, "api_server.pid")
+#    with open(pid_file, "w") as f:
+#        f.write(str(pid))
 
 # Find an available port
 def find_available_port(start_port=8000, max_attempts=100):
@@ -48,11 +53,11 @@ def find_available_port(start_port=8000, max_attempts=100):
     raise RuntimeError(f"Could not find an available port after {max_attempts} attempts")
 
 # Write server info including port
-def write_server_info(port):
-    temp_dir = get_temp_dir()
-    info_file = os.path.join(temp_dir, "api_server_info.json")
-    with open(info_file, "w") as f:
-        json.dump({"port": port}, f)
+#def write_server_info(port):
+#    temp_dir = get_temp_dir()
+#    info_file = os.path.join(temp_dir, "api_server_info.json")
+#    with open(info_file, "w") as f:
+#        json.dump({"port": port}, f)
 
 # Graceful shutdown handler
 def handle_exit(signum, frame):
@@ -259,8 +264,11 @@ async def get_sql_component(name: str):
 @app.post("/sql_components")
 async def save_sql_component(component: dict):
     try:
+        logging.info(f"Saving SQL component: {component}")
         result = db_access.save_sql_component(component)
-        return json.loads(result)
+        logging.info(f"Result of saving SQL component: {result}")
+        #return json.loads(result)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -281,11 +289,16 @@ if __name__ == "__main__":
     # Find an available port
     port = find_available_port()
     
+    # Check if direct output flag is provided (used by Rust to get the port)
+    if "--direct-output" in sys.argv:
+        # Output port directly to stdout for Rust to read
+        print(port, flush=True)
+    
     # Write the PID file
-    write_pid_file()
+    #write_pid_file()
     
     # Write server info with port
-    write_server_info(port)
+    #write_server_info(port)
     
     # Start the API server
     uvicorn.run(app, host="127.0.0.1", port=port)

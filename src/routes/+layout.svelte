@@ -53,9 +53,7 @@
       // SQLコンポーネントを読み込む
       //const { invoke } = await import('@tauri-apps/api/core');
       //const result = await invoke('get_sql_components');
-      console.log('sqlcomponents start')
       const result = await apiClient.getSqlComponents();
-      console.log('sqlcomponents=',result)
       // APIから返ってきた結果を安全にパースする
       let parsedResult;
       if (typeof result === 'string') {

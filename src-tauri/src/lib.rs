@@ -1,10 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Child, Stdio};
 use std::sync::{Mutex, Arc};
-use std::fs;
-use std::io::{Read, ErrorKind};
-use std::time::Duration;
-use std::thread;
+use std::io::{BufRead, ErrorKind};
 
 // State struct to manage the Python process and API server
 struct AppState {
@@ -606,18 +603,6 @@ fn run_sql_component(name: String, env_vars: Option<serde_json::Value>) -> Resul
     }
 }
 
-// Get temp directory for API server files
-fn get_temp_dir() -> Result<PathBuf, String> {
-    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
-    let temp_dir = home_dir.join(".kakeibo-api-server");
-    
-    // Create directory if it doesn't exist
-    fs::create_dir_all(&temp_dir)
-        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
-        
-    Ok(temp_dir)
-}
-
 // Start the API server
 fn start_api_server() -> Result<(Child, u16), String> {
     let python_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python-env");
@@ -629,81 +614,61 @@ fn start_api_server() -> Result<(Child, u16), String> {
 
     let api_script = python_env_path.join("api.py");
     
-    // Get temp directory
-    let temp_dir = get_temp_dir()?;
-    
-    // Remove any old PID or info files to ensure clean state
-    let pid_file = temp_dir.join("api_server.pid");
-    let info_file = temp_dir.join("api_server_info.json");
-    
-    if pid_file.exists() {
-        let _ = fs::remove_file(&pid_file);
-    }
-    
-    if info_file.exists() {
-        let _ = fs::remove_file(&info_file);
-    }
-    
+    // Modify the API script invocation to output the port directly to stderr/stdout
     // Start the API server as a background process
-    let mut child = Command::new(python_executable)
+    let mut child = Command::new(&python_executable)
         .arg(&api_script)
+        .arg("--direct-output") // Add a flag to indicate direct port output
         .current_dir(&python_env_path)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to start API server: {}", e))?;
     
-    // Wait for the server to start and get the port from the info file
-    let mut attempts = 0;
-    let max_attempts = 10;
-    let mut port = None;
+    // Get the stdout handle to read the port number directly
+    let stdout = child.stdout.take()
+        .ok_or_else(|| "Failed to get stdout from child process".to_string())?;
     
-    while attempts < max_attempts {
-        if info_file.exists() {
-            // Read the port from the info file
-            let mut file = fs::File::open(&info_file)
-                .map_err(|e| format!("Failed to open API server info file: {}", e))?;
-            
-            let mut contents = String::new();
-            file.read_to_string(&mut contents)
-                .map_err(|e| format!("Failed to read API server info file: {}", e))?;
-            
-            let info: serde_json::Value = serde_json::from_str(&contents)
-                .map_err(|e| format!("Failed to parse API server info: {}", e))?;
-            
-            if let Some(p) = info["port"].as_u64() {
-                port = Some(p as u16);
-                break;
-            }
-        }
-        
-        // Wait a bit before trying again
-        thread::sleep(Duration::from_millis(500));
-        attempts += 1;
-    }
+    let mut reader = std::io::BufReader::new(stdout);
+    let mut line = String::new();
     
-    // Check if we got the port
-    match port {
-        Some(p) => Ok((child, p)),
-        None => {
-            // Kill the child process if we couldn't get the port
-            let _ = child.kill();
-            Err("Failed to get API server port after multiple attempts".to_string())
-        }
-    }
+    // Read the first line which should contain the port number
+    reader.read_line(&mut line)
+        .map_err(|e| format!("Failed to read port from API server: {}", e))?;
+    
+    // Parse the port number from the output
+    let port = line.trim().parse::<u16>()
+        .map_err(|e| format!("Failed to parse port number from API server output: {}", e))?;
+    
+    // Return the child process and port
+    Ok((child, port))
 }
 
 // Stop the API server
 fn stop_api_server(child: &mut Child) -> Result<(), String> {
+    println!("API server stop_api_server");
     // Try to terminate gracefully first
     if let Err(e) = child.kill() {
+        println!("API server stop_api_server Error ");
         if e.kind() != ErrorKind::InvalidInput {
             // Only return error if it's not because the process has already exited
             return Err(format!("Failed to kill API server: {}", e));
         }
     }
     
-    Ok(())
+    // Wait for the process to exit to avoid zombies
+    match child.wait() {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            if e.kind() == ErrorKind::InvalidInput {
+                // Process already exited
+                println!("API server stop_api_server Error ");
+                Ok(())
+            } else {
+                Err(format!("Failed to wait for API server to exit: {}", e))
+            }
+        }
+    }
 }
 
 // Get the API base URL
@@ -817,12 +782,23 @@ pub fn run() {
                         eprintln!("Error stopping API server: {}", e);
                     } else {
                         println!("API server stopped successfully");
+                        // Clear the API server reference after successful shutdown
+                        *api_server_guard = None;
                     }
                 }
                 
-                // Continue with the close request
+                // Get a handle to the window that can be used across thread boundaries
+                let window_handle = window.clone();
+                
+                // Allow the window to close without recursively triggering close events
                 api.prevent_close();
-                window.close().unwrap();
+                
+                // Use a separate task to close the window to avoid recursion
+                std::thread::spawn(move || {
+                    // Small delay to ensure the event loop completes
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                    window_handle.close().unwrap();
+                });
             }
         })
         .invoke_handler(tauri::generate_handler![

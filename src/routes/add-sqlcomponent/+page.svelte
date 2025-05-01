@@ -225,8 +225,11 @@ LIMIT 12;`;
       //const { invoke } = await import('@tauri-apps/api/core');
       //console.log('sqlComponent',sqlComponent)
       //const result = await invoke('save_sql_component', { component: sqlComponent });
-      const result = await apiClient.saveSqlComponent({component:sqlComponent});
-      
+      console.log('result??=',sqlComponent)
+      //const result = await apiClient.saveSqlComponent({component:sqlComponent});
+      const result = await apiClient.saveSqlComponent(sqlComponent);
+      console.log('result=',result)
+
       // APIから返ってきた結果を安全にパースする
       let parsedResult;
       if (typeof result === 'string') {
