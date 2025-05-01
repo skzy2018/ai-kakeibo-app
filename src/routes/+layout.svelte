@@ -47,7 +47,30 @@
       const { invoke } = await import('@tauri-apps/api/core');
       const result = await invoke('get_sql_components');
       
-      const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+      // APIから返ってきた結果を安全にパースする
+      let parsedResult;
+      if (typeof result === 'string') {
+        try {
+          // 単純にJSONとしてパース
+          parsedResult = JSON.parse(result);
+        } catch (e) {
+          console.error("Initial JSON parse failed:", e);
+          try {
+            // シングルクォートの問題を回避するため文字列を手動でクリーン
+            // シングルクォートをダブルクォートに置換してJSON形式に修正
+            const cleanedResult = result
+              .replace(/'/g, '"')
+              .replace(/\\'/g, "\\'") // エスケープされたシングルクォートは保持
+              .trim();
+            parsedResult = JSON.parse(cleanedResult);
+          } catch (e2) {
+            console.error("Failed to parse cleaned JSON:", e2);
+            parsedResult = [];
+          }
+        }
+      } else {
+        parsedResult = result;
+      }
       if (Array.isArray(parsedResult)) {
         sqlComponents = parsedResult.map(comp => ({
           id: comp.name,
