@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
+  //import { invoke } from "@tauri-apps/api/core";
   import { confirm } from "@tauri-apps/plugin-dialog";
+  import { apiClient } from "../../../lib/api-client";
   
   // State variables
   let loading = false;
@@ -21,7 +22,8 @@
     
     try {
       // Get list of CSV files
-      const result = await invoke<string>("get_csv_files");
+      //const result = await invoke<string>("get_csv_files");
+      const result = await apiClient.getCsvFiles() as any;
       console.log("get_csv_file execute")
       csvFiles = JSON.parse(result);
       loading = false;
@@ -44,7 +46,9 @@
     
     try {
       // Load CSV file
-      const result = await invoke<string>("load_csv_file", { filename });
+      //const result = await invoke<string>("load_csv_file", { filename });
+      const result = await apiClient.loadCsvFile(filename) as any;
+      console.log("load_csv_file execute")
       const resultData = JSON.parse(result);
       
       if (resultData.success) {

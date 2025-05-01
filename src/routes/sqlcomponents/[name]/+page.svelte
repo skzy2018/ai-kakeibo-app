@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/stores";
+  import { apiClient } from "../../../lib/api-client";
   
   // SQLコンポーネントのデータ
   let component: { environment_variables: any; name: any; d3code: any; description: any; sql: any; } | null = null;
@@ -31,8 +32,9 @@
       
       const componentName = $page.params.name;
       
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke('get_sql_component', { name: componentName });
+      //const { invoke } = await import('@tauri-apps/api/core');
+      //const result = await invoke('get_sql_component', { name: componentName });
+      const result = await apiClient.getSqlComponent(componentName);
 
       // APIから返ってきた結果を安全にパースする
       let parsedResult;
@@ -97,11 +99,12 @@
         }
       });
       
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke('run_sql_component', {
-        name: component.name,
-        envVars: envVars
-      });
+      //const { invoke } = await import('@tauri-apps/api/core');
+      //const result = await invoke('run_sql_component', {
+      //  name: component.name,
+      //  envVars: envVars
+      //});
+      const result = await apiClient.runSqlComponent(component.name, envVars);
       
       const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
       

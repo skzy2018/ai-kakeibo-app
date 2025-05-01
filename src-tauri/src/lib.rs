@@ -1,10 +1,16 @@
-use std::path::Path;
-use std::process::Command;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Child, Stdio};
+use std::sync::{Mutex, Arc};
+use std::fs;
+use std::io::{Read, ErrorKind};
+use std::time::Duration;
+use std::thread;
 
-// State struct to manage the Python process
-struct PythonState {
+// State struct to manage the Python process and API server
+struct AppState {
     initialized: Mutex<bool>,
+    api_server: Mutex<Option<Child>>,
+    api_port: Mutex<Option<u16>>,
 }
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -600,16 +606,225 @@ fn run_sql_component(name: String, env_vars: Option<serde_json::Value>) -> Resul
     }
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    let python_state = PythonState {
-        initialized: Mutex::new(false),
+// Get temp directory for API server files
+fn get_temp_dir() -> Result<PathBuf, String> {
+    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
+    let temp_dir = home_dir.join(".kakeibo-api-server");
+    
+    // Create directory if it doesn't exist
+    fs::create_dir_all(&temp_dir)
+        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+        
+    Ok(temp_dir)
+}
+
+// Start the API server
+fn start_api_server() -> Result<(Child, u16), String> {
+    let python_env_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("python-env");
+    let python_executable = if cfg!(target_os = "windows") {
+        python_env_path.join("Scripts/python")
+    } else {
+        python_env_path.join("bin/python")
     };
 
-    tauri::Builder::default()
+    let api_script = python_env_path.join("api.py");
+    
+    // Get temp directory
+    let temp_dir = get_temp_dir()?;
+    
+    // Remove any old PID or info files to ensure clean state
+    let pid_file = temp_dir.join("api_server.pid");
+    let info_file = temp_dir.join("api_server_info.json");
+    
+    if pid_file.exists() {
+        let _ = fs::remove_file(&pid_file);
+    }
+    
+    if info_file.exists() {
+        let _ = fs::remove_file(&info_file);
+    }
+    
+    // Start the API server as a background process
+    let mut child = Command::new(python_executable)
+        .arg(&api_script)
+        .current_dir(&python_env_path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start API server: {}", e))?;
+    
+    // Wait for the server to start and get the port from the info file
+    let mut attempts = 0;
+    let max_attempts = 10;
+    let mut port = None;
+    
+    while attempts < max_attempts {
+        if info_file.exists() {
+            // Read the port from the info file
+            let mut file = fs::File::open(&info_file)
+                .map_err(|e| format!("Failed to open API server info file: {}", e))?;
+            
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)
+                .map_err(|e| format!("Failed to read API server info file: {}", e))?;
+            
+            let info: serde_json::Value = serde_json::from_str(&contents)
+                .map_err(|e| format!("Failed to parse API server info: {}", e))?;
+            
+            if let Some(p) = info["port"].as_u64() {
+                port = Some(p as u16);
+                break;
+            }
+        }
+        
+        // Wait a bit before trying again
+        thread::sleep(Duration::from_millis(500));
+        attempts += 1;
+    }
+    
+    // Check if we got the port
+    match port {
+        Some(p) => Ok((child, p)),
+        None => {
+            // Kill the child process if we couldn't get the port
+            let _ = child.kill();
+            Err("Failed to get API server port after multiple attempts".to_string())
+        }
+    }
+}
+
+// Stop the API server
+fn stop_api_server(child: &mut Child) -> Result<(), String> {
+    // Try to terminate gracefully first
+    if let Err(e) = child.kill() {
+        if e.kind() != ErrorKind::InvalidInput {
+            // Only return error if it's not because the process has already exited
+            return Err(format!("Failed to kill API server: {}", e));
+        }
+    }
+    
+    Ok(())
+}
+
+// Get the API base URL
+fn get_api_base_url(port: u16) -> String {
+    format!("http://127.0.0.1:{}", port)
+}
+
+// Initialize database using API
+#[tauri::command]
+fn api_init_database(state: tauri::State<AppState>) -> Result<String, String> {
+    let port = state.api_port.lock().unwrap();
+    let port = port.expect("API server not started");
+    
+    let url = format!("{}/init_database", get_api_base_url(port));
+    
+    // Make HTTP request to initialize database
+    let client = reqwest::blocking::Client::new();
+    let response = client.post(&url)
+        .send()
+        .map_err(|e| format!("Failed to send request to API server: {}", e))?;
+    
+    if response.status().is_success() {
+        let result = response.text()
+            .map_err(|e| format!("Failed to read API response: {}", e))?;
+        Ok(result)
+    } else {
+        Err(format!("API request failed with status: {}", response.status()))
+    }
+}
+
+// Get API health status
+#[tauri::command]
+fn api_health(state: tauri::State<AppState>) -> Result<String, String> {
+    let port = state.api_port.lock().unwrap();
+    let port = port.expect("API server not started");
+    
+    let url = format!("{}/health", get_api_base_url(port));
+    
+    // Make HTTP request to check API health
+    let client = reqwest::blocking::Client::new();
+    let response = client.get(&url)
+        .send()
+        .map_err(|e| format!("Failed to send request to API server: {}", e))?;
+    
+    if response.status().is_success() {
+        let result = response.text()
+            .map_err(|e| format!("Failed to read API response: {}", e))?;
+        Ok(result)
+    } else {
+        Err(format!("API request failed with status: {}", response.status()))
+    }
+}
+
+// Get the API base URL for use in frontend
+#[tauri::command]
+fn get_api_url(state: tauri::State<AppState>) -> String {
+    let port = state.api_port.lock().unwrap();
+    match *port {
+        Some(p) => get_api_base_url(p),
+        None => "API server not started".to_string(),
+    }
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    // Initialize app state with Arc
+    let app_state = Arc::new(AppState {
+        initialized: Mutex::new(false),
+        api_server: Mutex::new(None),
+        api_port: Mutex::new(None),
+    });
+    
+    // Create clone for setup closure
+    let setup_state = Arc::clone(&app_state);
+    
+    // Create clone for window event closure
+    let event_state = Arc::clone(&app_state);
+    
+    // Create app with state
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(python_state)
+        .manage(app_state.clone())
+        .setup(move |_app| {
+            // Start API server during setup
+            println!("Starting API server...");
+            
+            match start_api_server() {
+                Ok((child, port)) => {
+                    println!("API server started on port {}", port);
+                    
+                    // Store the child process and port in app state
+                    *setup_state.api_server.lock().unwrap() = Some(child);
+                    *setup_state.api_port.lock().unwrap() = Some(port);
+                },
+                Err(e) => {
+                    eprintln!("Failed to start API server: {}", e);
+                }
+            }
+            
+            Ok(())
+        })
+        .on_window_event(move |window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Attempt to shutdown the API server when the application is closing
+                println!("Application closing, stopping API server...");
+                
+                let mut api_server_guard = event_state.api_server.lock().unwrap();
+                if let Some(ref mut child) = *api_server_guard {
+                    if let Err(e) = stop_api_server(child) {
+                        eprintln!("Error stopping API server: {}", e);
+                    } else {
+                        println!("API server stopped successfully");
+                    }
+                }
+                
+                // Continue with the close request
+                api.prevent_close();
+                window.close().unwrap();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             init_database,
@@ -633,8 +848,24 @@ pub fn run() {
             save_sql_component,
             get_sql_components,
             get_sql_component,
-            run_sql_component
-        ])
-        .run(tauri::generate_context!())
+            run_sql_component,
+            // API related commands
+            api_health,
+            api_init_database,
+            get_api_url
+        ]);
+    
+    app.run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// App state needs to be cloneable for use in tauri::Builder
+impl Clone for AppState {
+    fn clone(&self) -> Self {
+        AppState {
+            initialized: Mutex::new(*self.initialized.lock().unwrap()),
+            api_server: Mutex::new(None), // Can't clone child process, so initialize to None
+            api_port: Mutex::new(*self.api_port.lock().unwrap()),
+        }
+    }
 }

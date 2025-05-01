@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { browser } from "$app/environment";
+  import { apiClient } from "../../lib/api-client";
   
   // Form data
   let componentName = "";
@@ -221,9 +222,10 @@ LIMIT 12;`;
       };
       
       // Call the Tauri backend to save the component
-      const { invoke } = await import('@tauri-apps/api/core');
-      console.log('sqlComponent',sqlComponent)
-      const result = await invoke('save_sql_component', { component: sqlComponent });
+      //const { invoke } = await import('@tauri-apps/api/core');
+      //console.log('sqlComponent',sqlComponent)
+      //const result = await invoke('save_sql_component', { component: sqlComponent });
+      const result = await apiClient.saveSqlComponent({component:sqlComponent});
       
       // APIから返ってきた結果を安全にパースする
       let parsedResult;
@@ -236,7 +238,7 @@ LIMIT 12;`;
           try {
             // シングルクォートの問題を回避するため文字列を手動でクリーン
             // シングルクォートをダブルクォートに置換してJSON形式に修正
-            const cleanedResult = result
+            const cleanedResult = (result as string)
               .replace(/'/g, '"')
               .replace(/\\'/g, "\\'") // エスケープされたシングルクォートは保持
               .trim();
@@ -378,7 +380,7 @@ LIMIT 12;`;
 </script>
 
 <svelte:head>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ace/1.9.6/ace.min.css">
+  <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ace/1.9.6/ace.min.css"> -->
   <script src="https://d3js.org/d3.v7.min.js" defer></script>
 </svelte:head>
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { goto } from "$app/navigation";
+  import { apiClient } from "../../lib/api-client";
   
   let components: string | any[] = [];
   let isLoading = true;
@@ -12,11 +13,20 @@
   
   async function loadComponents() {
     try {
+
+      // Ensure API client is initialized
+      if (!apiClient.isInitialized()) {
+        await apiClient.initialize();
+      }
+
       isLoading = true;
       errorMessage = "";
       
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke('get_sql_components');
+      console.log('getSqlComponents:aaa')
+      //const { invoke } = await import('@tauri-apps/api/core');
+      //const result = await invoke('get_sql_components');
+      const result = await apiClient.getSqlComponents();
+      console.log('getSqlComponents=',result)
 
       // APIから返ってきた結果を安全にパースする
       let parsedResult;
@@ -29,7 +39,7 @@
           try {
             // シングルクォートの問題を回避するため文字列を手動でクリーン
             // シングルクォートをダブルクォートに置換してJSON形式に修正
-            const cleanedResult = result
+            const cleanedResult = (result as string)
               .replace(/'/g, '"')
               .replace(/\\'/g, "\\'") // エスケープされたシングルクォートは保持
               .trim();

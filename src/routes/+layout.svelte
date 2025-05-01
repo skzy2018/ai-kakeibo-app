@@ -2,6 +2,7 @@
   import { page } from '$app/stores';
   import { onMount } from 'svelte';
   import '../styles/global.css';
+  import { apiClient } from "../lib/api-client";
 
   // The initial menu structure
   let menuItems: any = [
@@ -43,10 +44,18 @@
   // Load data and populate menu
   onMount(async () => {
     try {
+
+      // Ensure API client is initialized
+      if (!apiClient.isInitialized()) {
+        await apiClient.initialize();
+      }
+
       // SQLコンポーネントを読み込む
-      const { invoke } = await import('@tauri-apps/api/core');
-      const result = await invoke('get_sql_components');
-      
+      //const { invoke } = await import('@tauri-apps/api/core');
+      //const result = await invoke('get_sql_components');
+      console.log('sqlcomponents start')
+      const result = await apiClient.getSqlComponents();
+      console.log('sqlcomponents=',result)
       // APIから返ってきた結果を安全にパースする
       let parsedResult;
       if (typeof result === 'string') {
@@ -58,7 +67,7 @@
           try {
             // シングルクォートの問題を回避するため文字列を手動でクリーン
             // シングルクォートをダブルクォートに置換してJSON形式に修正
-            const cleanedResult = result
+            const cleanedResult = (result as string)
               .replace(/'/g, '"')
               .replace(/\\'/g, "\\'") // エスケープされたシングルクォートは保持
               .trim();

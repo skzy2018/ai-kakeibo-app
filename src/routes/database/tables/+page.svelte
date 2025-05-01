@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
-  import { confirm } from "@tauri-apps/plugin-dialog";
+  //import { invoke } from "@tauri-apps/api/core";
+  //import { confirm } from "@tauri-apps/plugin-dialog";
+  import { apiClient } from "../../../lib/api-client";
   
   // Define types for database entries
   interface Account {
@@ -81,23 +82,28 @@
     error = null;
     
     try {
-      // Load accounts
-      const accountResult = await invoke<string>("get_accounts");
-      accountData = JSON.parse(accountResult).map((account: any) => ({
+      // Ensure API client is initialized
+      if (!apiClient.isInitialized()) {
+        await apiClient.initialize();
+      }
+      
+      // Load accounts using API client
+      const accounts = await apiClient.getAccounts();
+      accountData = accounts.map((account: any) => ({
         ...account,
         id: account.account_id // Set the id alias for UI
       }));
       
-      // Load categories
-      const categoryResult = await invoke<string>("get_categories");
-      categoryData = JSON.parse(categoryResult).map((category: any) => ({
+      // Load categories using API client
+      const categories = await apiClient.getCategories();
+      categoryData = categories.map((category: any) => ({
         ...category,
         id: category.category_id // Set the id alias for UI
       }));
       
-      // Load tags
-      const tagResult = await invoke<string>("get_tags");
-      tagData = JSON.parse(tagResult).map((tag: any) => ({
+      // Load tags using API client
+      const tags = await apiClient.getTags();
+      tagData = tags.map((tag: any) => ({
         ...tag,
         id: tag.tag_id // Set the id alias for UI
       }));
@@ -143,41 +149,40 @@
     }
     
     try {
+      // Ensure API client is initialized
+      if (!apiClient.isInitialized()) {
+        await apiClient.initialize();
+      }
+      
       let result;
-      console.log( newAccount )
       
       if (activeTable === "accounts") {
-        result = await invoke("add_account", {
-          name: newAccount.name,
-          accountType: newAccount.account_type,
-          currency: newAccount.currency
-        });
+        result = await apiClient.addAccount(
+          newAccount.name,
+          newAccount.account_type,
+          newAccount.currency
+        );
         
         // Clear form
-        //newAccount = { name: "", account_type: "銀行", currency: "JPY", type: "銀行", balance: 0 };
         newAccount = { name: "", account_type: "銀行", currency: "JPY"};
       } else if (activeTable === "categories") {
-        result = await invoke("add_category", {
-          name: newCategory.name,
-          categoryType: newCategory.type
-        });
+        result = await apiClient.addCategory(
+          newCategory.name,
+          newCategory.type
+        );
         
         // Clear form
-        //newCategory = { name: "", type: "支出", parent_id: null };
         newCategory = { name: "", type: "支出" };
       } else if (activeTable === "tags") {
-        result = await invoke("add_tag", {
-          name: newTag.name
-        });
+        result = await apiClient.addTag(
+          newTag.name
+        );
         
         // Clear form
         newTag = { name: "" };
       }
       
-      // Parse result
-      const resultData = JSON.parse(result as string);
-      
-      if (resultData.success) {
+      if (result && result.success) {
         // Show success message
         successMessage = `${activeTable === "accounts" ? "口座" : 
                           activeTable === "categories" ? "カテゴリ" : "タグ"}
@@ -195,7 +200,7 @@
         // Close form
         showAddForm = false;
       } else {
-        formError = (resultData as any).error || "追加に失敗しました";
+        formError = (result as any).error || "追加に失敗しました";
       }
     } catch (err) {
       console.error("Failed to add item:", err);
@@ -232,37 +237,32 @@
                       activeTable === "categories" ? "カテゴリ" : "タグ";
     
     const count = selectedItems[activeTable].size;
-    console.log("selectedItems",selectedItems[activeTable])
-    console.log("count",count)
     if (count === 0) return;
-    
-    //if (!confirm(`選択した${count}個の${tableType}を削除しますか？この操作は元に戻せません。`)) {
-    //  console.log("confirm")
-    //  return;
-    //}
     
     let deleted = 0;
     errors = [];
     
     try {
+      // Ensure API client is initialized
+      if (!apiClient.isInitialized()) {
+        await apiClient.initialize();
+      }
+      
       for (const id of selectedItems[activeTable]) {
         let result;
         
         if (activeTable === "accounts") {
-          result = await invoke("delete_account", { accountId: id });
+          result = await apiClient.deleteAccount(id);
         } else if (activeTable === "categories") {
-          result = await invoke("delete_category", { categoryId: id });
+          result = await apiClient.deleteCategory(id);
         } else if (activeTable === "tags") {
-          result = await invoke("delete_tag", { tagId: id });
+          result = await apiClient.deleteTag(id);
         }
-        console.log(result)
         
-        const resultData = JSON.parse(result as string);
-        
-        if ((resultData as any).success) {
+        if (result && result.success) {
           deleted++;
         } else {
-          errors.push(`ID ${id}: ${resultData.error}`);
+          errors.push(`ID ${id}: ${result.error || '不明なエラー'}`);
         }
       }
       
@@ -296,7 +296,6 @@
       console.error("Failed to delete items:", err);
       formError = `削除に失敗しました: ${err}`;
     }
-    console.log("delete ends ... ",errors,formError)
   }
 </script>
 
