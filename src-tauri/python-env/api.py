@@ -15,8 +15,43 @@ import db_access
 
 
 import logging
+#logging.basicConfig(level=logging.INFO,handlers=[logging.FileHandler("./api_server.log") ] )
+logging.basicConfig(level=logging.INFO,stream=sys.stderr,format='%(asctime)s - %(levelname)s - %(message)s')
 
-logging.basicConfig(level=logging.INFO,handlers=[logging.FileHandler("api_server.log") ] )
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "()": "uvicorn.logging.DefaultFormatter",
+            "fmt": "%(levelprefix)s %(asctime)s - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "access": {
+            "()": "uvicorn.logging.AccessFormatter",
+            "fmt": '%(levelprefix)s %(asctime)s - %(client_addr)s - "%(request_line)s" %(status_code)s',
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr", # Output to stderr
+        },
+        "access": {
+            "formatter": "access",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr", # Output access logs to stderr
+        },
+    },
+    "loggers": {
+        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"level": "INFO"}, # Use default handler
+        "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False}, # Use access handler
+    },
+}
+
 
 # Create FastAPI application
 app = FastAPI(title="Kakeibo API Server")
@@ -227,7 +262,8 @@ async def add_transaction(transaction: Transaction):
 async def get_csv_files():
     try:
         csv_files = db_access.get_csv_files()
-        return json.loads(csv_files)
+        #return json.loads(csv_files)
+        return csv_files
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -264,9 +300,9 @@ async def get_sql_component(name: str):
 @app.post("/sql_components")
 async def save_sql_component(component: dict):
     try:
-        logging.info(f"Saving SQL component: {component}")
+        #logging.info(f"Saving SQL component: {component}")
         result = db_access.save_sql_component(component)
-        logging.info(f"Result of saving SQL component: {result}")
+        #logging.info(f"Result of saving SQL component: {result}")
         #return json.loads(result)
         return result
     except Exception as e:
@@ -301,4 +337,9 @@ if __name__ == "__main__":
     #write_server_info(port)
     
     # Start the API server
-    uvicorn.run(app, host="127.0.0.1", port=port)
+    uvicorn.run(
+        app, 
+        host="127.0.0.1", 
+        port=port,
+        log_config=LOGGING_CONFIG
+    )

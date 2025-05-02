@@ -2,6 +2,8 @@ use std::path::Path;
 use std::process::{Command, Child, Stdio};
 use std::sync::{Mutex, Arc};
 use std::io::{BufRead, ErrorKind};
+use std::thread;
+use tauri::Manager;
 
 // State struct to manage the Python process and API server
 struct AppState {
@@ -639,7 +641,25 @@ fn start_api_server() -> Result<(Child, u16), String> {
     // Parse the port number from the output
     let port = line.trim().parse::<u16>()
         .map_err(|e| format!("Failed to parse port number from API server output: {}", e))?;
+
+    let stderr = child.stderr.take()
+        .ok_or_else(|| "Failed to get stderr from child process".to_string())?;
     
+    thread::spawn( move || {
+        let mut stderr_reader = std::io::BufReader::new(stderr);
+        for line in stderr_reader.lines() {
+            match line {
+                Ok(log_line) => {
+                    println!("API server stderr: {}", log_line);
+                }
+                Err(e) => {
+                    eprintln!("Error reading API server stderr error: {}", e);
+                    break;
+                }
+            }
+        }
+        println!("[API server log] stderr stream closed.");
+    });
     // Return the child process and port
     Ok((child, port))
 }
@@ -745,7 +765,7 @@ pub fn run() {
     let setup_state = Arc::clone(&app_state);
     
     // Create clone for window event closure
-    let event_state = Arc::clone(&app_state);
+    //let event_state = Arc::clone(&app_state);
     
     // Create app with state
     let app = tauri::Builder::default()
@@ -772,33 +792,41 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(move |window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            //if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
                 // Attempt to shutdown the API server when the application is closing
                 println!("Application closing, stopping API server...");
                 
-                let mut api_server_guard = event_state.api_server.lock().unwrap();
-                if let Some(ref mut child) = *api_server_guard {
-                    if let Err(e) = stop_api_server(child) {
-                        eprintln!("Error stopping API server: {}", e);
-                    } else {
-                        println!("API server stopped successfully");
-                        // Clear the API server reference after successful shutdown
-                        *api_server_guard = None;
+                //let mut api_server_guard = event_state.api_server.lock().unwrap();
+                //if let Some(ref mut child) = *api_server_guard {
+                // get the shared state directly from the window
+                let state = window.app_handle().state::<Arc<AppState>>();
+                if let Ok(mut api_server_guard) = state.api_server.lock() {
+                    if let Some(ref mut child) = *api_server_guard {
+                        if let Err(e) = stop_api_server(child) {
+                            eprintln!("Error stopping API server: {}", e);
+                        } else {
+                            println!("API server stopped successfully");
+                            // Clear the API server reference after successful shutdown
+                            *api_server_guard = None;
+                        }
                     }
                 }
                 
                 // Get a handle to the window that can be used across thread boundaries
-                let window_handle = window.clone();
+                //let window_handle = window.clone();
                 
                 // Allow the window to close without recursively triggering close events
-                api.prevent_close();
+                //api.prevent_close();
                 
                 // Use a separate task to close the window to avoid recursion
-                std::thread::spawn(move || {
-                    // Small delay to ensure the event loop completes
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                    window_handle.close().unwrap();
-                });
+                //std::thread::spawn(move || {
+                //    // Small delay to ensure the event loop completes
+                //    std::thread::sleep(std::time::Duration::from_millis(1000));
+                //    window_handle.close().unwrap();
+                //});
+                std::thread::sleep(std::time::Duration::from_millis(1000));
+                //window.close().unwrap();
             }
         })
         .invoke_handler(tauri::generate_handler![

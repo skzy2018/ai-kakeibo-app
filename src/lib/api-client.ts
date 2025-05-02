@@ -2,6 +2,7 @@
 
 // API client for the Kakeibo application
 export class ApiClient {
+  private initializing_flag = false;
   private baseUrl: string | null = null;
   private isBrowser: boolean;
 
@@ -12,6 +13,13 @@ export class ApiClient {
 
   // Initialize the API client by getting the API URL from Rust
   async initialize(): Promise<void> {
+    console.log('Initializing API client...');
+    if (this.initializing_flag) {
+      console.log('already Initializing API client!!');
+      return;
+    }
+    this.initializing_flag = true;
+
     // Skip initialization if not in browser
     if (!this.isBrowser) {
       console.warn('API client not initialized: Not in browser environment');
@@ -25,6 +33,7 @@ export class ApiClient {
       
       // Try a sequence of ports, starting from 8000
       for (let port = 8000; port < 8100; port++) {
+        console.log('creating api client with port:', port)
         try {
           const response = await fetch(`http://127.0.0.1:${port}/health`, {
             method: 'GET',
@@ -43,9 +52,13 @@ export class ApiClient {
         }
       }
       
+      console.log("exiting initializeing process ... initializing_flag will be flalse")
+      this.initializing_flag = false;
       this.baseUrl = apiUrl;
       console.log(`API client initialized with base URL: ${this.baseUrl}`);
     } catch (error) {
+      console.log("exiting initializeing process with error ... initializing_flag will be flalse")
+      this.initializing_flag = false;
       console.error('Failed to initialize API client:', error);
       throw error;
     }
@@ -54,10 +67,11 @@ export class ApiClient {
   // Check if the API client is initialized
   isInitialized(): boolean {
     // In non-browser environments, pretend we're initialized to avoid errors
+    console.log('check initializied :', this.baseUrl, this.initializing_flag, this.isBrowser);
     if (!this.isBrowser) {
       return true;
     }
-    return this.baseUrl !== null;
+    return ( this.baseUrl !== null || this.initializing_flag );
   }
 
   // Check the health of the API
