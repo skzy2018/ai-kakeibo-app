@@ -47,9 +47,10 @@
     try {
       // Load CSV file
       //const result = await invoke<string>("load_csv_file", { filename });
-      const result = await apiClient.loadCsvFile(filename) as any;
-      console.log("load_csv_file execute")
-      const resultData = JSON.parse(result);
+      console.log("load_csv_file execute",filename)
+      const resultData = await apiClient.loadCsvFile(filename) as any;
+      //const resultData = JSON.parse(result);
+      console.log(resultData)
       
       if (resultData.success) {
         success = true;

@@ -43,6 +43,10 @@
 
   // Load data and populate menu
   onMount(async () => {
+    updateMenus();
+  });
+
+  async function updateMenus() {
     try {
 
       // Ensure API client is initialized
@@ -54,30 +58,9 @@
       //const { invoke } = await import('@tauri-apps/api/core');
       //const result = await invoke('get_sql_components');
       const result = await apiClient.getSqlComponents();
-      // APIから返ってきた結果を安全にパースする
-      let parsedResult;
-      if (typeof result === 'string') {
-        try {
-          // 単純にJSONとしてパース
-          parsedResult = JSON.parse(result);
-        } catch (e) {
-          console.error("Initial JSON parse failed:", e);
-          try {
-            // シングルクォートの問題を回避するため文字列を手動でクリーン
-            // シングルクォートをダブルクォートに置換してJSON形式に修正
-            const cleanedResult = (result as string)
-              .replace(/'/g, '"')
-              .replace(/\\'/g, "\\'") // エスケープされたシングルクォートは保持
-              .trim();
-            parsedResult = JSON.parse(cleanedResult);
-          } catch (e2) {
-            console.error("Failed to parse cleaned JSON:", e2);
-            parsedResult = [];
-          }
-        }
-      } else {
-        parsedResult = result;
-      }
+      //console.log("result",result)
+      let parsedResult = result;
+
       if (Array.isArray(parsedResult)) {
         sqlComponents = parsedResult.map(comp => ({
           id: comp.name,
@@ -89,9 +72,9 @@
       console.error("Failed to load SQL components:", error);
       sqlComponents = [];
     }
-    
     // メニューを更新
     menuItems = menuItems.map((item: { id: string; }) => {
+
       if (item.id === 'sqlcomponents') {
         return {
           ...item,
@@ -118,12 +101,14 @@
       
       return item;
     });
-  });
+
+  }
 
   // State for tracking expanded menu items
   let expandedMenus = new Set(['database']); // Default expanded items
 
   function toggleMenu(id: string) {
+    updateMenus();
     if (expandedMenus.has(id)) {
       expandedMenus.delete(id);
     } else {
@@ -146,7 +131,7 @@
       <ul class="menu-list">
         {#each menuItems as item}
           <li class="menu-item">
-            {#if item.children && item.children.length > 0}
+            {#if item.children}
               <!-- Menu with submenu -->
               <div 
                 class="menu-header" 

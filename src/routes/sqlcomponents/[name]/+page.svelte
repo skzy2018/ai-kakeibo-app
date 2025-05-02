@@ -22,6 +22,7 @@
   let iframeRef: HTMLIFrameElement;
   
   onMount(async () => {
+    console.log("name - sqlcomponents - onMount");
     await loadComponent();
   });
   

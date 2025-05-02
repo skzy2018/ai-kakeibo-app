@@ -49,6 +49,7 @@ LOGGING_CONFIG = {
         "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
         "uvicorn.error": {"level": "INFO"}, # Use default handler
         "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False}, # Use access handler
+        "": {"handlers": ["default"], "level": "DEBUG" }, #Add root logger config for app logs
     },
 }
 
@@ -143,9 +144,11 @@ async def init_database():
 
 # Execute custom SQL
 @app.post("/execute_sql")
-async def execute_sql(sql: str):
+async def execute_sql(sqldict: dict):
+    #logging.debug(f"Received SQL for execution: {sqldict}")
     try:
-        result = db_access.execute_sql(sql)
+        #result = db_access.execute_sql(sql)
+        result = db_access.execute_query(sqldict['sql'])
         return {"success": True, "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

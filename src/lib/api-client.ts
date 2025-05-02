@@ -238,7 +238,7 @@ export class ApiClient {
 
   // Execute custom SQL query
   async executeSql(sql: string): Promise<any> {
-    return this.post<any>('/execute_sql', sql);
+    return this.post<any>('/execute_sql', {"sql":sql});
   }
 }
 

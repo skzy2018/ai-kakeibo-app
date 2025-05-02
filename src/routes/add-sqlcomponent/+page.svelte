@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { browser } from "$app/environment";
-  import { apiClient } from "../../lib/api-client";
+  import { ApiClient, apiClient } from "../../lib/api-client";
   
   // Form data
   let componentName = "";
@@ -68,16 +68,15 @@
     }
   ];
   
+//WHERE transaction_date >= $startDate AND transaction_date <= $endDate
   // Sample SQL queries
   const sampleSQL = `-- 月別支出合計 (棒グラフ)
 SELECT 
   strftime('%Y-%m', transaction_date) as month,
   SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as total_expense
 FROM transactions
-WHERE transaction_date >= $startDate AND transaction_date <= $endDate
 GROUP BY month
-ORDER BY month
-LIMIT 12;`;
+ORDER BY month;`;
 
   // Sample D3 code
   const sampleD3 = `// D3.js visualization code
@@ -225,10 +224,10 @@ LIMIT 12;`;
       //const { invoke } = await import('@tauri-apps/api/core');
       //console.log('sqlComponent',sqlComponent)
       //const result = await invoke('save_sql_component', { component: sqlComponent });
-      console.log('result??=',sqlComponent)
+      //console.log('result??=',sqlComponent)
       //const result = await apiClient.saveSqlComponent({component:sqlComponent});
       const result = await apiClient.saveSqlComponent(sqlComponent);
-      console.log('result=',result)
+      //console.log('result=',result)
 
       // APIから返ってきた結果を安全にパースする
       let parsedResult;
@@ -292,6 +291,9 @@ LIMIT 12;`;
     try {
       // In a real implementation, this would call the Tauri backend
       // For demonstration, we'll simulate a SQL query execution
+      console.log(sqlQuery);
+      const sqlQueryResult = await apiClient.executeSql(sqlQuery);
+      console.log(sqlQueryResult);
       
       // Mock data based on the SQL query
       let mockData;
@@ -315,6 +317,14 @@ LIMIT 12;`;
           { column1: 'データ2', column2: 200 }
         ];
       }
+
+      let resultData;
+      if (sqlQueryResult.success) {
+        resultData = sqlQueryResult.result;
+      } else {
+        resultData = mockData;
+      }
+
       
       // Create a complete HTML document for the iframe
       const previewHTML = `
@@ -348,7 +358,7 @@ LIMIT 12;`;
           <div id="visualization"></div>
           <script>
             // The data from SQL query results
-            const data = ${JSON.stringify(mockData)};
+            const data = ${JSON.stringify(resultData)};
             // Execute the D3 code
             ${d3Code}
           <\/script>

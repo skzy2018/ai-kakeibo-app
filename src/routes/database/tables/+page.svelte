@@ -375,6 +375,7 @@
                     <option value="現金">現金</option>
                     <option value="銀行">銀行</option>
                     <option value="カード">クレジットカード</option>
+                    <option value="借入元">借入元</option>
                     <option value="電子マネー">電子マネー</option>
                     <option value="その他">その他</option>
                   </select>

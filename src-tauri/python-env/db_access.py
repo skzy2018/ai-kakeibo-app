@@ -95,7 +95,26 @@ class DatabaseManager:
         conn.commit()
         
         return cursor.lastrowid
-    
+
+    def insert_record_withCur_notCommit(self, cursor, table, data):
+        """Insert a record into a table. but don't commit and use cursor.
+        
+        Args:
+            cursor (cursor): database cursor
+            table (str): The name of the table.
+            data (dict): A dictionary of column names and values.
+        
+        Returns:
+            int: The ID of the inserted record.
+        """
+        columns = ', '.join(data.keys())
+        placeholders = ', '.join(['?' for _ in data])
+        values = list(data.values())
+        
+        query = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        cursor.execute(query, values)
+        return cursor.lastrowid
+
     def delete_record(self, table, condition_column, condition_value):
         """Delete a record from a table.
         
@@ -261,7 +280,8 @@ class DatabaseManager:
                     "data_collector": data_collector,
                     "update_date": update_date
                 }
-                log_id = self.insert_record("data_logs", log_data)
+                #log_id = self.insert_record("data_logs", log_data)
+                log_id = self.insert_record_withCur_notCommit(cursor,"data_logs", log_data)
                 
                 # Read CSV file
                 transactions_inserted = 0
@@ -307,7 +327,8 @@ class DatabaseManager:
                                 "name": account_name,
                                 "account_type": "その他"  # Default type
                             }
-                            account_id = self.insert_record("accounts", account_data)
+                            #account_id = self.insert_record("accounts", account_data)
+                            account_id = self.insert_record_withCur_notCommit(cursor, "accounts", account_data)
                         
                         # Get category_id from categories table, or create if not exists
                         cursor.execute("SELECT category_id FROM categories WHERE name = ? AND type = ?", 
@@ -320,7 +341,8 @@ class DatabaseManager:
                                 "name": category_name,
                                 "type": category_type
                             }
-                            category_id = self.insert_record("categories", category_data)
+                            #category_id = self.insert_record("categories", category_data)
+                            category_id = self.insert_record_withCur_notCommit(cursor, "categories", category_data)
                         
                         # Insert transaction
                         transaction_data = {
@@ -333,7 +355,8 @@ class DatabaseManager:
                             "transaction_date": transaction_date,
                             "memo": memo
                         }
-                        transaction_id = self.insert_record("transactions", transaction_data)
+                        #transaction_id = self.insert_record("transactions", transaction_data)
+                        transaction_id = self.insert_record_withCur_notCommit(cursor, "transactions", transaction_data)
                         transactions_inserted += 1
                         
                         # Process tags
@@ -348,7 +371,8 @@ class DatabaseManager:
                                 tag_id = result['tag_id']
                             else:
                                 tag_data = {"name": tag_name}
-                                tag_id = self.insert_record("tags", tag_data)
+                                #tag_id = self.insert_record("tags", tag_data)
+                                tag_id = self.insert_record_withCur_notCommit(cursor, "tags", tag_data)
                             
                             # Add to transaction_tags
                             cursor.execute(
@@ -404,6 +428,9 @@ class DatabaseManager:
 db = DatabaseManager()
 
 # Example functions that can be called from Rust/Tauri
+def execute_query(sql):
+    return db.execute_query(sql)
+
 def execute_sql(sql):
     return db.execute_sql_component(sql)
 

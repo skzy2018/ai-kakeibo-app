@@ -8,6 +8,7 @@
   let errorMessage = "";
   
   onMount(async () => {
+    console.log("sqlcomponents - onMount");
     await loadComponents();
   });
   
