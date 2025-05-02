@@ -630,6 +630,35 @@ def get_sql_component(name):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+
+def delete_sql_component(name):
+    """Delete a specific SQL component by name.
+    
+    Args:
+        name (str): The name of the SQL component
+        
+    Returns:
+        dict: {"success": True, ( "error": str ) if error}
+    """
+    try:
+        # Get the directory where the script is located
+        script_dir = Path(os.path.dirname(os.path.abspath(__file__)))
+        # Navigate to the data/component directory from script location
+        component_dir = script_dir.parent.parent / 'data' / 'component'
+
+        # File path for the component
+        component_path = component_dir / f"{name}.json"
+
+        if not component_path.exists():
+            return {"success": False, "error": f"SQL component '{name}' not found"}
+
+        os.remove(component_path)
+        return {"success": True}
+
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def run_sql_component(name, env_vars=None):
     """Run a SQL component with environment variables.
     

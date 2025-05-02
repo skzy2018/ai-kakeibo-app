@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import '../styles/global.css';
   import { apiClient } from "../lib/api-client";
+  import { goto } from '$app/navigation';
 
   // The initial menu structure
   let menuItems: any = [
@@ -115,6 +116,7 @@
       expandedMenus.add(id);
     }
     expandedMenus = expandedMenus; // Trigger reactivity
+    goto(`/${id}`);
   }
 
   // Get the current active path

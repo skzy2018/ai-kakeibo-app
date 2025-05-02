@@ -311,6 +311,18 @@ async def save_sql_component(component: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# delete SQL component
+@app.delete("/sql_components/{name}")
+async def delete_sql_component(name: str):
+    try:
+        #logging.info(f"Saving SQL component: {component}")
+        result = db_access.delete_sql_component(name)
+        #logging.info(f"Result of saving SQL component: {result}")
+        #return json.loads(result)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Run SQL component
 @app.post("/sql_components/{name}/run")
 async def run_sql_component(name: str, env_vars: Dict[str, str] = {}):

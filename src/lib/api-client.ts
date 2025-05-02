@@ -232,6 +232,10 @@ export class ApiClient {
     return this.post<any>('/sql_components', component);
   }
 
+  async deleteSqlComponent(name: string): Promise<any> {
+    return this.delete<any>(`/sql_components/${name}`);
+  }
+
   async runSqlComponent(name: string, envVars?: any): Promise<any> {
     return this.post<any>(`/sql_components/${name}/run`, envVars || {});
   }

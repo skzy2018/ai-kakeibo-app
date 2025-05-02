@@ -1,12 +1,18 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
   import { page } from "$app/stores";
+  import { afterNavigate } from "$app/navigation";
   import { apiClient } from "../../../lib/api-client";
+  import { confirm } from "@tauri-apps/plugin-dialog";
+  //import { dataDir } from "@tauri-apps/api/path";
   
   // SQLコンポーネントのデータ
   let component: { environment_variables: any; name: any; d3code: any; description: any; sql: any; } | null = null;
   let isLoading = true;
   let errorMessage = "";
+  let isDeleting = false;
+  let deleteError = "";
   
   // 環境変数の編集用
   let environmentVariables: any[] = [];
@@ -25,6 +31,16 @@
     console.log("name - sqlcomponents - onMount");
     await loadComponent();
   });
+  
+  // ページナビゲーションのパラメータを監視（afterNavigateを使用して非推奨のpageストアを置き換え）
+  afterNavigate(async (navigation) => {
+    const componentName = $page.params.name;
+    if (componentName && (!component || componentName !== component.name)) {
+      await loadComponent();
+    }
+  });
+  
+  // afterNavigateは自動的に監視を処理するので、onDestroyでのクリーンアップは不要
   
   async function loadComponent() {
     try {
@@ -85,8 +101,7 @@
   }
   
   async function runSQLComponent() {
-    if (!component) return;
-    if (!component.name) return;
+    if (!component || !component.name) return;
     
     try {
       isExecuting = true;
@@ -194,6 +209,36 @@
     envVarsChanged = true;
   }
   
+  async function deleteSqlComponent() {
+    if (!component || !component.name) return;
+    
+    if (!await confirm(`本当に「${component.name}」を削除しますか？この操作は元に戻せません。`)) {
+      return;
+    }
+    
+    try {
+      isDeleting = true;
+      deleteError = "";
+      
+      const result = await apiClient.deleteSqlComponent(component.name);
+      const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
+      
+      if (!parsedResult.success) {
+        executeError = parsedResult.error || "削除に失敗しました";
+        return;
+      }
+
+      // 削除成功したら一覧ページに戻る
+      goto('/sqlcomponents');
+      
+    } catch (error) {
+      console.error("Failed to delete SQL component:", error);
+      deleteError = `コンポーネントの削除に失敗しました: ${error}`;
+    } finally {
+      isDeleting = false;
+    }
+  }
+  
   async function saveEnvironmentVariables() {
     try {
       // 環境変数を保存する処理
@@ -242,7 +287,22 @@
       <button class="secondary" on:click={loadComponent}>再試行</button>
     </div>
   {:else if component}
-    <h1>{component.name}</h1>
+    <div class="page-header">
+      <h1>{component.name}</h1>
+      <button class="danger" on:click={deleteSqlComponent} disabled={isDeleting}>
+        {#if isDeleting}
+          削除中...
+        {:else}
+          <span class="material-icons">delete</span>削除
+        {/if}
+      </button>
+    </div>
+    
+    {#if deleteError}
+      <div class="error-message">
+        <p>{deleteError}</p>
+      </div>
+    {/if}
     
     {#if component.description}
       <div class="description">
@@ -390,6 +450,17 @@
     padding: 1rem;
   }
   
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .page-header h1 {
+    margin: 0;
+  }
+  
   .loading {
     display: flex;
     justify-content: center;
@@ -522,6 +593,22 @@
   
   button.secondary:hover:not(:disabled) {
     background-color: var(--light-bg-darker);
+  }
+  
+  button.danger {
+    background-color: var(--danger);
+    color: white;
+    border: none;
+  }
+  
+  button.danger:hover:not(:disabled) {
+    background-color: #d32f2f; /* ダークレッド */
+  }
+  
+  button.danger:disabled {
+    background-color: var(--light-bg-darker);
+    color: var(--light-text-muted);
+    cursor: not-allowed;
   }
   
   .material-icons {
