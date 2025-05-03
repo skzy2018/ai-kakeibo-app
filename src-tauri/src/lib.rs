@@ -646,7 +646,7 @@ fn start_api_server() -> Result<(Child, u16), String> {
         .ok_or_else(|| "Failed to get stderr from child process".to_string())?;
     
     thread::spawn( move || {
-        let mut stderr_reader = std::io::BufReader::new(stderr);
+        let stderr_reader = std::io::BufReader::new(stderr);
         for line in stderr_reader.lines() {
             match line {
                 Ok(log_line) => {

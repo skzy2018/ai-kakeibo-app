@@ -116,7 +116,10 @@
       expandedMenus.add(id);
     }
     expandedMenus = expandedMenus; // Trigger reactivity
-    goto(`/${id}`);
+    if (id == 'sqlcomponents') {
+      //goto('/sqlcomponents');
+      goto(`/${id}`);
+    }
   }
 
   // Get the current active path
